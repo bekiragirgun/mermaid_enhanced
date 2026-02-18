@@ -618,13 +618,26 @@ body {
   border-color: var(--red);
 }
 
-.btn-save, .btn-open {
+.btn-save, .btn-open, .btn-clear {
   background: transparent;
   border-color: var(--surface1);
 }
 
-.btn-save:hover { background: var(--surface0); border-color: var(--surface1); }
-.btn-open:hover { background: var(--surface0); border-color: var(--surface1); }
+.btn-save:hover, .btn-open:hover, .btn-clear:hover {
+  background: var(--surface0);
+  border-color: var(--surface1);
+}
+
+.btn-stop {
+  background: var(--red);
+  color: var(--crust);
+  border-color: var(--red);
+  font-weight: 600;
+}
+
+.btn-stop:hover {
+  opacity: 0.85;
+}
 
 /* ========== Toast ========== */
 .toast {

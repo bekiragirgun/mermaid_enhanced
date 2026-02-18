@@ -272,6 +272,28 @@
     }
   });
 
+  // ── Stop & Clear ────────────────────────────────────
+  const btnStop = $('#btnStop');
+  const btnClear = $('#btnClear');
+  let currentAbort = null;
+
+  function showStopBtn(show) {
+    btnStop.style.display = show ? 'inline-flex' : 'none';
+  }
+
+  btnStop.addEventListener('click', () => {
+    if (currentAbort) {
+      currentAbort.abort();
+      currentAbort = null;
+    }
+  });
+
+  btnClear.addEventListener('click', () => {
+    editor.setValue('');
+    renderPreview();
+    showToast('Editör temizlendi', 'success');
+  });
+
   // ── Chat ──────────────────────────────────────────────
   let chatHistory = [];
   let isStreaming = false;
@@ -313,6 +335,10 @@
     isStreaming = true;
     chatStatus.textContent = 'Yanıt alınıyor…';
     btnSend.disabled = true;
+    showStopBtn(true);
+
+    const abortController = new AbortController();
+    currentAbort = abortController;
 
     const assistantBubble = addChatMessage('assistant', '');
     let fullResponse = '';
@@ -320,6 +346,7 @@
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
+        signal: abortController.signal,
         headers: {
           'Content-Type': 'application/json',
           'X-AI-Base-URL': settings.baseUrl,
@@ -366,8 +393,15 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
     } catch (err) {
-      fullResponse += `\n[Bağlantı hatası: ${err.message}]`;
+      if (err.name === 'AbortError') {
+        fullResponse += '\n[Durduruldu]';
+      } else {
+        fullResponse += `\n[Bağlantı hatası: ${err.message}]`;
+      }
     }
+
+    currentAbort = null;
+    showStopBtn(false);
 
     // Final render with apply button
     const mermaidCode = extractMermaidCode(fullResponse);
