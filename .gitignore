@@ -3,3 +3,6 @@ tmp/
 diagrams/
 .DS_Store
 *.log
+.server.pid
+.playwright-mcp/
+*.png
