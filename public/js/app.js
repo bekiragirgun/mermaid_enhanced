@@ -43,8 +43,10 @@
   // ── Live preview (debounced) ──────────────────────────
   let debounceTimer = null;
   let cleanupNodeDrag = null;
+  let diagramModified = false; // true when nodes have been dragged
 
   function renderPreview() {
+    diagramModified = false;
     if (cleanupNodeDrag) { cleanupNodeDrag(); cleanupNodeDrag = null; }
 
     const code = editor.getValue().trim();
@@ -79,6 +81,82 @@
   setTimeout(renderPreview, 200);
 
   // ── Export ─────────────────────────────────────────────
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function getModifiedSVGString() {
+    const svg = preview.querySelector('svg');
+    if (!svg) return null;
+    const clone = svg.cloneNode(true);
+
+    // Copy computed font styles inline (avoids cross-origin taint on canvas)
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = `text, .label { font-family: sans-serif; }`;
+    clone.insertBefore(styleEl, clone.firstChild);
+
+    // Set explicit dimensions from viewBox for correct canvas rendering
+    const vb = clone.getAttribute('viewBox');
+    if (vb) {
+      const parts = vb.split(/[\s,]+/).map(Number);
+      clone.setAttribute('width', parts[2]);
+      clone.setAttribute('height', parts[3]);
+    }
+    return new XMLSerializer().serializeToString(clone);
+  }
+
+  function exportModifiedSVG(format) {
+    const svgString = getModifiedSVGString();
+    if (!svgString) { showToast('SVG bulunamadı', 'error'); return Promise.resolve(); }
+
+    if (format === 'svg') {
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      downloadBlob(blob, 'diagram.svg');
+      showToast('SVG indirildi', 'success');
+      return Promise.resolve();
+    }
+
+    // PNG: render SVG to canvas using inline data URI (avoids tainted canvas)
+    return new Promise((resolve) => {
+      const img = new Image();
+      const dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+
+      img.onload = () => {
+        const scale = 2; // retina quality
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob((pngBlob) => {
+          if (pngBlob) {
+            downloadBlob(pngBlob, 'diagram.png');
+            showToast('PNG indirildi', 'success');
+          } else {
+            showToast('PNG oluşturulamadı', 'error');
+          }
+          resolve();
+        }, 'image/png');
+      };
+
+      img.onerror = () => {
+        showToast('PNG oluşturulamadı', 'error');
+        resolve();
+      };
+
+      img.src = dataUri;
+    });
+  }
+
   document.querySelectorAll('.btn-export').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const format = btn.dataset.format;
@@ -87,6 +165,12 @@
 
       btn.disabled = true;
       try {
+        // If diagram layout was modified by dragging, export from current SVG DOM
+        if (diagramModified && (format === 'png' || format === 'svg')) {
+          await exportModifiedSVG(format);
+          return;
+        }
+
         const res = await fetch('/api/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,14 +183,7 @@
         }
 
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `diagram.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, `diagram.${format}`);
         showToast(`${format.toUpperCase()} indirildi`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
@@ -679,6 +756,7 @@
 
     function commitDrag() {
       if (!activeNode) return;
+      diagramModified = true;
       const data = nodeMap.get(activeNode);
 
       // Commit position
