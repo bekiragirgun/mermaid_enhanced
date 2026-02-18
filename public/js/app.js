@@ -128,11 +128,24 @@
     localStorage.setItem('ai_model', s.model);
   }
 
+  const modelSelect = $('#settingModel');
+
+  function setModelSelectValue(model) {
+    // If model exists as option, select it; otherwise add it
+    if (model && ![...modelSelect.options].some(o => o.value === model)) {
+      const opt = document.createElement('option');
+      opt.value = model;
+      opt.textContent = model;
+      modelSelect.appendChild(opt);
+    }
+    modelSelect.value = model || '';
+  }
+
   $('#btnSettings').addEventListener('click', () => {
     const s = loadSettings();
     $('#settingBaseUrl').value = s.baseUrl;
     $('#settingApiKey').value = s.apiKey;
-    $('#settingModel').value = s.model;
+    setModelSelectValue(s.model);
     settingsModal.style.display = 'flex';
   });
 
@@ -144,11 +157,59 @@
     if (e.target === settingsModal) settingsModal.style.display = 'none';
   });
 
+  $('#btnFetchModels').addEventListener('click', async () => {
+    const baseUrl = $('#settingBaseUrl').value.trim();
+    const apiKey = $('#settingApiKey').value.trim();
+    if (!baseUrl) return showToast('Önce Base URL girin', 'error');
+
+    const btn = $('#btnFetchModels');
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+      const res = await fetch('/api/models', {
+        headers: {
+          'X-AI-Base-URL': baseUrl,
+          ...(apiKey ? { 'X-AI-API-Key': apiKey } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Model listesi alınamadı');
+      }
+
+      const models = await res.json();
+      const currentVal = modelSelect.value;
+
+      // Clear existing options except placeholder
+      modelSelect.innerHTML = '<option value="">— Model seçin —</option>';
+      models.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        modelSelect.appendChild(opt);
+      });
+
+      // Restore previous selection if still available
+      if (currentVal && [...modelSelect.options].some(o => o.value === currentVal)) {
+        modelSelect.value = currentVal;
+      }
+
+      showToast(`${models.length} model bulundu`, 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Getir';
+    }
+  });
+
   $('#btnSaveSettings').addEventListener('click', () => {
     saveSettings({
       baseUrl: $('#settingBaseUrl').value.trim(),
       apiKey: $('#settingApiKey').value.trim(),
-      model: $('#settingModel').value.trim(),
+      model: modelSelect.value,
     });
     settingsModal.style.display = 'none';
     showToast('Ayarlar kaydedildi', 'success');

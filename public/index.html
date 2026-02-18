@@ -144,7 +144,13 @@
         </label>
         <label class="form-label">
           Model
-          <input type="text" id="settingModel" class="form-input" placeholder="qwen3:8b">
+          <div class="model-select-row">
+            <select id="settingModel" class="form-input form-select">
+              <option value="">— Model seçin —</option>
+            </select>
+            <button class="btn btn-fetch-models" id="btnFetchModels" type="button">Getir</button>
+          </div>
+          <small style="color:var(--overlay0);font-size:11px">Önce Base URL ve API Key girin, sonra "Getir" ile modelleri çekin</small>
         </label>
       </div>
       <div class="modal-footer">

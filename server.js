@@ -100,6 +100,45 @@ app.delete('/api/diagrams/:id', async (req, res) => {
   }
 });
 
+// Fetch available models from AI provider
+app.get('/api/models', async (req, res) => {
+  const baseUrl = req.headers['x-ai-base-url'];
+  const apiKey = req.headers['x-ai-api-key'];
+  if (!baseUrl) return res.status(400).json({ error: 'Base URL required' });
+
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+
+  // Try OpenAI-compatible /models first, then Ollama /api/tags
+  const hasVersion = /\/v\d+(\/|$)/.test(cleanBase);
+  const urls = [
+    cleanBase + (hasVersion ? '/models' : '/v1/models'),
+    cleanBase + '/api/tags',
+  ];
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        headers: apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {},
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) continue;
+
+      const data = await response.json();
+
+      // OpenAI format: { data: [{ id: "model-name" }] }
+      if (data.data && Array.isArray(data.data)) {
+        return res.json(data.data.map(m => ({ id: m.id, name: m.id })));
+      }
+      // Ollama format: { models: [{ name: "model:tag" }] }
+      if (data.models && Array.isArray(data.models)) {
+        return res.json(data.models.map(m => ({ id: m.name, name: m.name })));
+      }
+    } catch { /* try next URL */ }
+  }
+
+  res.status(502).json({ error: 'Model listesi alınamadı' });
+});
+
 // Export endpoint
 app.post('/api/export', async (req, res) => {
   const { code, format = 'png', theme = 'dark' } = req.body;
@@ -165,8 +204,8 @@ ${currentCode || ''}
   });
 
   const cleanBase = baseUrl.replace(/\/+$/, '');
-  const hasPath = /\/v1(\/|$)/.test(cleanBase);
-  const targetUrl = hasPath ? cleanBase + '/chat/completions' : cleanBase + '/v1/chat/completions';
+  const hasVersionedPath = /\/v\d+(\/|$)/.test(cleanBase);
+  const targetUrl = hasVersionedPath ? cleanBase + '/chat/completions' : cleanBase + '/v1/chat/completions';
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
