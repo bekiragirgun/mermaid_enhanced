@@ -413,6 +413,75 @@
   }
   chatInput.addEventListener('input', autoResize);
 
+  // ── Voice Input (Web Speech API) ─────────────────────
+  const btnMic = $('#btnMic');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isRecording = false;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'tr-TR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let finalTranscript = '';
+
+    recognition.onstart = () => {
+      isRecording = true;
+      btnMic.classList.add('recording');
+      btnMic.title = 'Dinleniyor… (durdurmak için tıklayın)';
+      chatStatus.textContent = 'Dinleniyor…';
+    };
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      finalTranscript = '';
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalTranscript += e.results[i][0].transcript;
+        } else {
+          interim += e.results[i][0].transcript;
+        }
+      }
+      chatInput.value = finalTranscript || interim;
+      autoResize();
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      btnMic.classList.remove('recording');
+      btnMic.title = 'Sesli Komut';
+      chatStatus.textContent = '';
+      if (finalTranscript.trim()) {
+        sendChat();
+      }
+    };
+
+    recognition.onerror = (e) => {
+      isRecording = false;
+      btnMic.classList.remove('recording');
+      chatStatus.textContent = '';
+      if (e.error === 'not-allowed') {
+        showToast('Mikrofon erişimi reddedildi', 'error');
+      } else if (e.error !== 'aborted') {
+        showToast('Ses tanıma hatası: ' + e.error, 'error');
+      }
+    };
+
+    btnMic.addEventListener('click', () => {
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        finalTranscript = '';
+        chatInput.value = '';
+        recognition.start();
+      }
+    });
+  } else {
+    btnMic.style.display = 'none';
+  }
+
   // ── Zoom ─────────────────────────────────────────────
   let zoomScale = 1.0;
   const zoomStep = 0.1;

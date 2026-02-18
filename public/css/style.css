@@ -424,6 +424,35 @@ body {
 
 .btn-send:hover { background: var(--blue); }
 
+.btn-mic {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--surface0);
+  color: var(--subtext0);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+  padding: 0;
+}
+
+.btn-mic:hover { background: var(--surface1); color: var(--text); }
+
+.btn-mic.recording {
+  background: var(--red);
+  color: var(--crust);
+  animation: mic-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* ========== Modal ========== */
 .modal-overlay {
   position: fixed;
