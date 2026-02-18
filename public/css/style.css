@@ -193,13 +193,19 @@ body {
 /* ========== Preview ========== */
 .preview-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   position: relative;
   background: var(--base);
+  cursor: grab;
+  user-select: none;
+}
+
+.preview-container.grabbing {
+  cursor: grabbing;
 }
 
 #mermaidPreview {

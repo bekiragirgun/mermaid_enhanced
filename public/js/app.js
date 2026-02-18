@@ -577,32 +577,77 @@
     btnMic.style.display = 'none';
   }
 
-  // ── Zoom ─────────────────────────────────────────────
+  // ── Zoom & Pan ──────────────────────────────────────
   let zoomScale = 1.0;
   const zoomStep = 0.1;
   const zoomMin = 0.2;
   const zoomMax = 3.0;
   const zoomLevelEl = $('#zoomLevel');
+  const previewContainer = $('#previewContainer');
 
-  function applyZoom() {
-    preview.style.transform = `scale(${zoomScale})`;
+  let panX = 0;
+  let panY = 0;
+
+  function applyTransform() {
+    preview.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
     preview.style.transformOrigin = 'center center';
     zoomLevelEl.textContent = Math.round(zoomScale * 100) + '%';
   }
 
   $('#btnZoomIn').addEventListener('click', () => {
     zoomScale = Math.min(zoomMax, +(zoomScale + zoomStep).toFixed(1));
-    applyZoom();
+    applyTransform();
   });
 
   $('#btnZoomOut').addEventListener('click', () => {
     zoomScale = Math.max(zoomMin, +(zoomScale - zoomStep).toFixed(1));
-    applyZoom();
+    applyTransform();
   });
 
   $('#btnZoomReset').addEventListener('click', () => {
     zoomScale = 1.0;
-    applyZoom();
+    panX = 0;
+    panY = 0;
+    applyTransform();
+  });
+
+  // Mouse wheel zoom
+  previewContainer.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -zoomStep : zoomStep;
+    zoomScale = Math.max(zoomMin, Math.min(zoomMax, +(zoomScale + delta).toFixed(1)));
+    applyTransform();
+  }, { passive: false });
+
+  // Drag to pan
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let panStartX = 0;
+  let panStartY = 0;
+
+  previewContainer.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    panStartX = panX;
+    panStartY = panY;
+    previewContainer.classList.add('grabbing');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    previewContainer.classList.remove('grabbing');
   });
 
   // ── Utilities ─────────────────────────────────────────
