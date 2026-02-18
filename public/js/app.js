@@ -519,6 +519,14 @@
     const nodeGroups = [...svg.querySelectorAll('g.node')];
     if (!nodeGroups.length) return null;
 
+    // Allow SVG content to overflow its viewBox
+    svg.style.overflow = 'visible';
+    svg.style.maxWidth = 'none';
+
+    // Parse original viewBox
+    const vbAttr = svg.getAttribute('viewBox');
+    const origVB = vbAttr ? vbAttr.split(/[\s,]+/).map(Number) : [0, 0, 500, 500];
+
     // Store node data (original transform + center)
     const nodeMap = new Map();
     nodeGroups.forEach((g) => {
@@ -630,6 +638,41 @@
           ed.labelEl.setAttribute('transform', `${ed.labelOrigTransform} translate(${midDx}, ${midDy})`);
         }
       });
+
+      // Expand viewBox to fit all moved nodes
+      expandViewBox();
+    }
+
+    function expandViewBox() {
+      let minX = origVB[0], minY = origVB[1];
+      let maxX = origVB[0] + origVB[2], maxY = origVB[1] + origVB[3];
+      const pad = 40;
+
+      for (const [g, data] of nodeMap) {
+        const bbox = g.getBBox();
+        const t = g.getAttribute('transform') || '';
+        // Extract total translate offset from transform
+        let tx = 0, ty = 0;
+        const matches = t.match(/translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/g);
+        if (matches) {
+          matches.forEach((m) => {
+            const parts = m.match(/-?[\d.]+/g);
+            if (parts && parts.length >= 2) { tx += parseFloat(parts[0]); ty += parseFloat(parts[1]); }
+          });
+        }
+
+        const nodeMinX = bbox.x + tx - pad;
+        const nodeMinY = bbox.y + ty - pad;
+        const nodeMaxX = bbox.x + bbox.width + tx + pad;
+        const nodeMaxY = bbox.y + bbox.height + ty + pad;
+
+        if (nodeMinX < minX) minX = nodeMinX;
+        if (nodeMinY < minY) minY = nodeMinY;
+        if (nodeMaxX > maxX) maxX = nodeMaxX;
+        if (nodeMaxY > maxY) maxY = nodeMaxY;
+      }
+
+      svg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
     }
 
     let lastDx = 0, lastDy = 0;
