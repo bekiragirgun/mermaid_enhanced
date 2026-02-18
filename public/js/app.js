@@ -42,8 +42,11 @@
 
   // ── Live preview (debounced) ──────────────────────────
   let debounceTimer = null;
+  let cleanupNodeDrag = null;
 
   function renderPreview() {
+    if (cleanupNodeDrag) { cleanupNodeDrag(); cleanupNodeDrag = null; }
+
     const code = editor.getValue().trim();
     if (!code) {
       preview.innerHTML = '';
@@ -57,12 +60,12 @@
       .then(({ svg }) => {
         preview.innerHTML = svg;
         previewError.style.display = 'none';
+        cleanupNodeDrag = enableNodeDragging();
       })
       .catch((err) => {
         preview.innerHTML = '';
         previewError.textContent = err.message || 'Render hatası';
         previewError.style.display = 'block';
-        // mermaid leaves error container in DOM
         document.querySelectorAll('#d' + id).forEach((el) => el.remove());
       });
   }
@@ -507,6 +510,193 @@
     chatInput.style.height = Math.min(chatInput.scrollHeight, 80) + 'px';
   }
   chatInput.addEventListener('input', autoResize);
+
+  // ── Node Dragging ───────────────────────────────────
+  function enableNodeDragging() {
+    const svg = preview.querySelector('svg');
+    if (!svg) return null;
+
+    const nodeGroups = [...svg.querySelectorAll('g.node')];
+    if (!nodeGroups.length) return null;
+
+    // Store node data (original transform + center)
+    const nodeMap = new Map();
+    nodeGroups.forEach((g) => {
+      const bbox = g.getBBox();
+      nodeMap.set(g, {
+        origTransform: g.getAttribute('transform') || '',
+        cx: bbox.x + bbox.width / 2,
+        cy: bbox.y + bbox.height / 2,
+      });
+      g.style.cursor = 'move';
+    });
+
+    // Parse edges — Mermaid v11: paths are direct children of g.edgePaths
+    // Path IDs follow pattern L_{source}_{target}_{index}
+    const edges = [];
+    const edgePathEls = [...svg.querySelectorAll('g.edgePaths > path')];
+    const edgeLabelEls = [...svg.querySelectorAll('g.edgeLabels > g.edgeLabel')];
+
+    edgePathEls.forEach((pathEl, i) => {
+      const d = pathEl.getAttribute('d');
+      if (!d) return;
+
+      // Try to resolve source/target from path ID (e.g. "L_A_B_0")
+      let source = null, target = null;
+      const idMatch = pathEl.id && pathEl.id.match(/^L_(.+?)_(.+?)_\d+$/);
+      if (idMatch) {
+        const srcKey = idMatch[1];
+        const tgtKey = idMatch[2];
+        for (const [g] of nodeMap) {
+          if (g.id.includes(`-${srcKey}-`)) source = g;
+          if (g.id.includes(`-${tgtKey}-`)) target = g;
+        }
+      }
+
+      // Fallback: proximity-based matching
+      if (!source || !target) {
+        const nums = d.match(/-?\d+\.?\d*/g);
+        if (!nums || nums.length < 4) return;
+        const sx = parseFloat(nums[0]), sy = parseFloat(nums[1]);
+        const ex = parseFloat(nums[nums.length - 2]), ey = parseFloat(nums[nums.length - 1]);
+        let minDS = Infinity, minDT = Infinity;
+        for (const [g, data] of nodeMap) {
+          const ds = Math.hypot(sx - data.cx, sy - data.cy);
+          const dt = Math.hypot(ex - data.cx, ey - data.cy);
+          if (!source || ds < minDS) { minDS = ds; source = g; }
+          if (!target || dt < minDT) { minDT = dt; target = g; }
+        }
+      }
+
+      const labelEl = i < edgeLabelEls.length ? edgeLabelEls[i] : null;
+      edges.push({
+        pathEl,
+        originalD: d,
+        source,
+        target,
+        labelEl,
+        labelOrigTransform: labelEl ? (labelEl.getAttribute('transform') || '') : '',
+      });
+    });
+
+    // Drag state
+    let activeNode = null;
+    let startSVGX = 0, startSVGY = 0;
+
+    function screenToSVG(cx, cy) {
+      const pt = svg.createSVGPoint();
+      pt.x = cx;
+      pt.y = cy;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function onMouseDown(e) {
+      const nodeG = e.target.closest('g.node');
+      if (!nodeG || !nodeMap.has(nodeG)) return;
+      e.stopPropagation();
+      e.preventDefault();
+      activeNode = nodeG;
+      const svgPt = screenToSVG(e.clientX, e.clientY);
+      startSVGX = svgPt.x;
+      startSVGY = svgPt.y;
+    }
+
+    function onMouseMove(e) {
+      if (!activeNode) return;
+      e.preventDefault();
+      const svgPt = screenToSVG(e.clientX, e.clientY);
+      const dx = svgPt.x - startSVGX;
+      const dy = svgPt.y - startSVGY;
+
+      lastDx = dx;
+      lastDy = dy;
+
+      const data = nodeMap.get(activeNode);
+      activeNode.setAttribute('transform', `${data.origTransform} translate(${dx}, ${dy})`);
+
+      // Update connected edges
+      edges.forEach((ed) => {
+        let srcDx = 0, srcDy = 0, tgtDx = 0, tgtDy = 0;
+        if (ed.source === activeNode) { srcDx = dx; srcDy = dy; }
+        if (ed.target === activeNode) { tgtDx = dx; tgtDy = dy; }
+        if (srcDx === 0 && srcDy === 0 && tgtDx === 0 && tgtDy === 0) return;
+
+        ed.pathEl.setAttribute('d', shiftPathEnds(ed.originalD, srcDx, srcDy, tgtDx, tgtDy));
+
+        // Move edge label with midpoint of shift
+        if (ed.labelEl) {
+          const midDx = (srcDx + tgtDx) / 2;
+          const midDy = (srcDy + tgtDy) / 2;
+          ed.labelEl.setAttribute('transform', `${ed.labelOrigTransform} translate(${midDx}, ${midDy})`);
+        }
+      });
+    }
+
+    let lastDx = 0, lastDy = 0;
+
+    function commitDrag() {
+      if (!activeNode) return;
+      const data = nodeMap.get(activeNode);
+
+      // Commit position
+      data.origTransform = activeNode.getAttribute('transform');
+      data.cx += lastDx;
+      data.cy += lastDy;
+
+      // Update edge original data
+      edges.forEach((ed) => {
+        if (ed.source === activeNode || ed.target === activeNode) {
+          ed.originalD = ed.pathEl.getAttribute('d');
+          if (ed.labelEl) {
+            ed.labelOrigTransform = ed.labelEl.getAttribute('transform');
+          }
+        }
+      });
+
+      activeNode = null;
+      lastDx = 0;
+      lastDy = 0;
+    }
+
+    svg.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', commitDrag);
+
+    // Return cleanup function
+    return () => {
+      svg.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', commitDrag);
+    };
+  }
+
+  // Shift SVG path endpoints with gradient interpolation
+  function shiftPathEnds(d, srcDx, srcDy, tgtDx, tgtDy) {
+    const numRegex = /-?\d+\.?\d*/g;
+    const nums = [];
+    let match;
+    while ((match = numRegex.exec(d)) !== null) {
+      nums.push({ val: parseFloat(match[0]), idx: match.index, len: match[0].length });
+    }
+
+    const numPairs = Math.floor(nums.length / 2);
+    if (numPairs < 2) return d;
+
+    // Apply gradient: first pair → source offset, last pair → target offset
+    for (let i = 0; i < nums.length - 1; i += 2) {
+      const t = (i / 2) / (numPairs - 1);
+      nums[i].val += srcDx * (1 - t) + tgtDx * t;
+      nums[i + 1].val += srcDy * (1 - t) + tgtDy * t;
+    }
+
+    // Rebuild from back to front to preserve indices
+    let result = d;
+    for (let i = nums.length - 1; i >= 0; i--) {
+      const n = nums[i];
+      result = result.substring(0, n.idx) + n.val.toFixed(2) + result.substring(n.idx + n.len);
+    }
+    return result;
+  }
 
   // ── Voice Input (Web Speech API) ─────────────────────
   const btnMic = $('#btnMic');
