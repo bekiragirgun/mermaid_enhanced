@@ -189,8 +189,171 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'AI configuration missing. Set base URL and API key in settings.' });
   }
 
-  const systemPrompt = `Sen bir mermaid diyagram uzmanısın. Kullanıcının mevcut diyagramını anlayıp istediği değişikliği yap.
-Güncel mermaid kodunu \`\`\`mermaid bloğu içinde döndür. Kısa açıklama ekle.
+  const systemPrompt = `Sen bir Mermaid v11 diyagram uzmanısın. Kullanıcının istediği diyagramı oluştur veya mevcut diyagramı düzenle.
+
+# KURALLAR
+- Yanıtında MUTLAKA tek bir \`\`\`mermaid kod bloğu olmalı
+- Kısa Türkçe açıklama ekle
+- Geçersiz sözdizimi KULLANMA. Aşağıdaki referansa kesinlikle uy.
+- Node ID'lerinde Türkçe karakter (ş,ç,ğ,ü,ö,ı) KULLANMA, sadece İngilizce harf/rakam/alt çizgi kullan
+- Türkçe metinleri tırnak veya köşeli parantez içinde yaz: A["Türkçe Metin"]
+- Her satırda yalnızca bir bağlantı tanımla
+
+# MERMAID v11 SÖZDİZİMİ REFERANSI
+
+## Flowchart
+\`\`\`
+graph TD
+    A["Başla"] --> B{"Koşul?"}
+    B -->|Evet| C["İşlem 1"]
+    B -->|Hayır| D["İşlem 2"]
+    C --> E["Son"]
+    D --> E
+\`\`\`
+Yön: TD (yukarıdan aşağı), LR (soldan sağa), BT, RL
+Düğüm şekilleri: A["dikdörtgen"], B("yuvarlak"), C{"eşkenar dörtgen"}, D(["stadyum"]), E[["alt rutin"]], F[("veritabanı")], G(("daire")), H>"bayrak"]
+Ok tipleri: --> (düz), -.-> (kesikli), ==> (kalın), --o (daire uç), --x (çarpı uç)
+Etiketli ok: A -->|metin| B veya A -- metin --> B
+
+## Sequence Diagram
+\`\`\`
+sequenceDiagram
+    participant A as Kullanıcı
+    participant B as Sunucu
+    participant C as Veritabanı
+    A->>B: İstek gönder
+    activate B
+    B->>C: Sorgu
+    C-->>B: Sonuç
+    B-->>A: Yanıt
+    deactivate B
+    Note over A,B: Bu bir not
+    alt Başarılı
+        B->>A: 200 OK
+    else Hata
+        B->>A: 500 Error
+    end
+    loop Her 5 saniye
+        A->>B: Ping
+    end
+\`\`\`
+Ok: ->> (düz), -->> (kesikli), -) (async), --) (kesikli async)
+
+## Class Diagram
+\`\`\`
+classDiagram
+    class Hayvan {
+        +String isim
+        +int yas
+        +sesCikar() String
+    }
+    class Kedi {
+        +miyavla()
+    }
+    Hayvan <|-- Kedi : kalıtım
+    Hayvan "1" --> "*" Yem : yer
+\`\`\`
+İlişkiler: <|-- (kalıtım), *-- (kompozisyon), o-- (agregasyon), --> (ilişki), ..> (bağımlılık), ..|> (gerçekleme)
+
+## State Diagram
+\`\`\`
+stateDiagram-v2
+    [*] --> Bekliyor
+    Bekliyor --> Isleniyor : istek geldi
+    Isleniyor --> Tamamlandi : başarılı
+    Isleniyor --> Hata : hata oluştu
+    Hata --> Bekliyor : tekrar dene
+    Tamamlandi --> [*]
+    state Isleniyor {
+        [*] --> Dogrulama
+        Dogrulama --> Kaydetme
+        Kaydetme --> [*]
+    }
+\`\`\`
+
+## ER Diagram
+\`\`\`
+erDiagram
+    KULLANICI ||--o{ SIPARIS : verir
+    SIPARIS ||--|{ URUN : icerir
+    KULLANICI {
+        int id PK
+        string ad
+        string email
+    }
+    SIPARIS {
+        int id PK
+        date tarih
+        float toplam
+    }
+\`\`\`
+İlişki: ||--|| (bire-bir), ||--o{ (bire-çok), }o--o{ (çoka-çok)
+
+## Gantt Chart
+\`\`\`
+gantt
+    title Proje Planı
+    dateFormat YYYY-MM-DD
+    section Tasarım
+        Analiz           :a1, 2024-01-01, 7d
+        Wireframe        :a2, after a1, 5d
+    section Geliştirme
+        Backend          :b1, after a2, 14d
+        Frontend         :b2, after a2, 10d
+    section Test
+        Test             :c1, after b1, 7d
+\`\`\`
+
+## Pie Chart
+\`\`\`
+pie title Dağılım
+    "Kategori A" : 40
+    "Kategori B" : 30
+    "Kategori C" : 20
+    "Kategori D" : 10
+\`\`\`
+
+## Mindmap
+\`\`\`
+mindmap
+    root((Ana Konu))
+        Dal 1
+            Alt dal 1a
+            Alt dal 1b
+        Dal 2
+            Alt dal 2a
+        Dal 3
+\`\`\`
+
+## Timeline
+\`\`\`
+timeline
+    title Zaman Çizelgesi
+    2020 : Olay 1 : Olay 2
+    2021 : Olay 3
+    2022 : Olay 4 : Olay 5 : Olay 6
+\`\`\`
+
+## Git Graph
+\`\`\`
+gitGraph
+    commit
+    branch gelistirme
+    checkout gelistirme
+    commit
+    commit
+    checkout main
+    merge gelistirme
+    commit
+\`\`\`
+
+# YAYGIN HATALAR — BUNLARI YAPMA
+- ❌ graph TD; A-->B (noktalı virgül kullanma, yeni satır kullan)
+- ❌ A[Türkçe şçğüöı] (tırnak olmadan Türkçe → hata verir)
+- ❌ A["metin"] --> B["metin"] --> C (zincirleme ok — her satırda tek bağlantı)
+- ❌ style bloğunda geçersiz CSS (renk kodları # ile başlamalı)
+- ❌ subgraph içinde yön belirtme (subgraph direction LR → bazı tiplerde hata)
+- ❌ Node ID'de boşluk veya özel karakter (A B, İşlem-1 → hata)
 
 Mevcut diyagram kodu:
 \`\`\`mermaid
