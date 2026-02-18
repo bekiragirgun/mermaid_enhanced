@@ -1,0 +1,13 @@
+{
+  "name": "mermaid-diagram-editor",
+  "version": "1.0.0",
+  "description": "Mermaid diagram editor with live preview, export and AI chat",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
