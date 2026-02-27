@@ -214,7 +214,33 @@
     localStorage.setItem('ai_base_url', s.baseUrl);
     localStorage.setItem('ai_api_key', s.apiKey);
     localStorage.setItem('ai_model', s.model);
+    updateModelBadge();
   }
+
+  // ── Model badge ─────────────────────────────────────
+  const modelBadge = $('#modelBadge');
+  const modelBadgeText = $('#modelBadgeText');
+
+  function updateModelBadge() {
+    const s = loadSettings();
+    if (s.model) {
+      modelBadgeText.textContent = s.model;
+      modelBadge.classList.remove('no-model');
+    } else {
+      modelBadgeText.textContent = 'Model ayarlanmadı';
+      modelBadge.classList.add('no-model');
+    }
+  }
+
+  modelBadge.addEventListener('click', () => {
+    const s = loadSettings();
+    $('#settingBaseUrl').value = s.baseUrl;
+    $('#settingApiKey').value = s.apiKey;
+    setModelSelectValue(s.model);
+    settingsModal.style.display = 'flex';
+  });
+
+  updateModelBadge();
 
   const modelSelect = $('#settingModel');
 
@@ -294,13 +320,15 @@
   });
 
   $('#btnSaveSettings').addEventListener('click', () => {
+    const selectedModel = modelSelect.value || $('#settingBaseUrl').value.trim() ? modelSelect.value : '';
     saveSettings({
       baseUrl: $('#settingBaseUrl').value.trim(),
       apiKey: $('#settingApiKey').value.trim(),
-      model: modelSelect.value,
+      model: selectedModel,
     });
     settingsModal.style.display = 'none';
     showToast('Ayarlar kaydedildi', 'success');
+    updateModelBadge();
   });
 
   // ── Diagram Save/Load ───────────────────────────────

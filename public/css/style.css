@@ -706,6 +706,43 @@ body {
   opacity: 0.85;
 }
 
+/* ========== Model Badge ========== */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  color: var(--subtext0);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all var(--transition);
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.model-badge:hover {
+  background: var(--surface1);
+  color: var(--text);
+  border-color: var(--lavender);
+}
+
+.model-badge.no-model {
+  color: var(--yellow);
+  border-color: var(--yellow);
+  border-style: dashed;
+}
+
+.model-badge.no-model:hover {
+  background: var(--yellow);
+  color: var(--crust);
+}
+
 /* ========== Theme Toggle ========== */
 .btn-theme {
   background: transparent;
