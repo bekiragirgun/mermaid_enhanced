@@ -9,11 +9,17 @@ Tarayıcı tabanlı, canlı önizlemeli Mermaid diyagram editörü. AI destekli 
 - **Canlı Önizleme** — Kod yazarken diyagram anında güncellenir (300ms debounce)
 - **CodeMirror Editör** — Sözdizimi vurgulama, satır numaraları, markdown modu
 - **AI Chat** — OpenAI uyumlu herhangi bir API ile diyagram oluşturma/düzenleme (SSE streaming)
+- **Akıllı Hata Düzeltme** — AI hatalı kod üretirse render hatası otomatik olarak AI'ya gönderilir ve düzeltme istenir
+- **Kapsamlı Mermaid Referansı** — AI system prompt'unda 10 diyagram tipi, stil/biçimlendirme referansı ve yaygın hata listesi
 - **Sesli Komut** — Mikrofon ile Türkçe konuşarak diyagram tarif edin (Web Speech API)
 - **Diyagram Kaydetme/Yükleme** — Oluşturduğunuz diyagramları kaydedin, istediğiniz zaman geri açın
-- **Export** — PNG, PDF, SVG formatlarında dışa aktarım
-- **Zoom** — %20 ile %300 arası yakınlaştırma/uzaklaştırma
-- **Karanlık Tema** — Catppuccin Mocha renk paleti
+- **Chat Geçmişi** — AI sohbetleri otomatik kaydedilir, Open modalından geri yüklenebilir
+- **Export** — PNG, PDF, SVG formatlarında dışa aktarım (sürüklenmiş düzen korunur)
+- **Düğüm Sürükleme** — Önizlemede düğümleri tek tek sürükleyin, oklar takip eder
+- **Ayarlanabilir Panel** — Önizleme ve editör arası bölme çizgisi sürüklenebilir
+- **Zoom** — %20 ile %300 arası yakınlaştırma/uzaklaştırma + sürükleyerek kaydırma
+- **Gece/Gündüz Modu** — Catppuccin Mocha (karanlık) ve Catppuccin Latte (aydınlık) temaları
+- **Model Göstergesi** — Toolbar'da aktif AI modelini gösterir, tıklayınca ayarlar açılır
 
 ## Kurulum
 
@@ -49,11 +55,11 @@ npm run dev
 
 ## AI Yapılandırması
 
-1. Sağ üstteki **AI Ayarları** butonuna tıklayın
+1. Toolbar'daki **model göstergesi** veya **ayarlar** butonuna tıklayın
 2. Yapılandırma:
    - **Base URL**: OpenAI uyumlu API adresi (ör. `http://localhost:11434` Ollama için)
    - **API Key**: API anahtarı (Ollama için herhangi bir değer, ör. `ollama`)
-   - **Model**: Kullanılacak model (ör. `qwen3:8b`, `gpt-4o`, `claude-3-sonnet`)
+   - **Model**: "Getir" butonuyla modelleri çekin, listeden seçin
 
 ### Desteklenen Sağlayıcılar
 
@@ -71,13 +77,16 @@ Chat alanındaki mikrofon butonuna tıklayın ve diyagramınızı Türkçe olara
 
 **Not:** Chrome/Edge tarayıcılarda en iyi çalışır (Web Speech API desteği).
 
-## Diyagram Kaydetme
+## Diyagram Kaydetme & Chat Geçmişi
 
-- **Kaydet**: Toolbar'daki disk ikonuna tıklayın, diyagrama bir isim verin
-- **Aç**: Klasör ikonuna tıklayın, kayıtlı diyagramlarınızı listeleyin ve seçin
-- **Sil**: Diyagram listesinden istemediğiniz kayıtları silin
+- **Kaydet**: Toolbar'daki Save butonuna tıklayın, diyagrama bir isim verin
+- **Aç**: Open butonuna tıklayın — iki sekme görünür:
+  - **Diyagramlar**: Kayıtlı diyagramlarınız
+  - **Chat Geçmişi**: Önceki AI sohbetleriniz (otomatik kaydedilir)
+- **Yükle**: Bir geçmiş kaydına tıklayın — hem chat mesajları hem diyagram kodu geri yüklenir
+- **Sil**: İstemediğiniz kayıtları silin
 
-Diyagramlar sunucu tarafında `diagrams/` klasörüne JSON olarak saklanır.
+Diyagramlar `diagrams/`, chat geçmişi `chat_history/` klasörüne JSON olarak saklanır.
 
 ## Mimari
 
@@ -88,9 +97,10 @@ mermaid_enhanced/
 ├── package.json
 ├── public/
 │   ├── index.html         # Ana sayfa
-│   ├── css/style.css      # Catppuccin Mocha tema
+│   ├── css/style.css      # Catppuccin Mocha/Latte tema
 │   └── js/app.js          # Frontend (vanilla JS, IIFE)
 ├── diagrams/              # Kayıtlı diyagramlar (JSON)
+├── chat_history/          # Chat geçmişi (JSON)
 └── tmp/                   # Geçici export dosyaları
 ```
 
@@ -100,10 +110,15 @@ mermaid_enhanced/
 |--------|----------|----------|
 | `POST` | `/api/export` | Diyagramı PNG/PDF/SVG olarak dışa aktar |
 | `POST` | `/api/chat` | AI chat proxy (SSE streaming) |
+| `GET` | `/api/models` | AI sağlayıcıdan model listesi çek |
 | `GET` | `/api/diagrams` | Kayıtlı diyagramları listele |
 | `POST` | `/api/diagrams` | Yeni diyagram kaydet |
 | `GET` | `/api/diagrams/:id` | Tek diyagram getir |
 | `DELETE` | `/api/diagrams/:id` | Diyagram sil |
+| `GET` | `/api/history` | Chat geçmişini listele |
+| `POST` | `/api/history` | Chat geçmişi kaydet |
+| `GET` | `/api/history/:id` | Tek chat geçmişi getir |
+| `DELETE` | `/api/history/:id` | Chat geçmişi sil |
 
 ## Teknolojiler
 
@@ -111,5 +126,5 @@ mermaid_enhanced/
 - **Frontend**: Vanilla JavaScript (framework yok)
 - **Editör**: CodeMirror 5
 - **Diyagram**: Mermaid v11
-- **Tema**: Catppuccin Mocha
+- **Tema**: Catppuccin Mocha / Latte
 - **Ses Tanıma**: Web Speech API
