@@ -13,10 +13,18 @@
   const settingsModal = $('#settingsModal');
   const toast = $('#toast');
 
+  // ── Theme toggle ─────────────────────────────────────
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  function getMermaidTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark';
+  }
+
   // ── Mermaid init ──────────────────────────────────────
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'dark',
+    theme: getMermaidTheme(),
     securityLevel: 'loose',
     fontFamily: 'JetBrains Mono, monospace',
   });
@@ -976,6 +984,23 @@
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n/g, '<br>');
   }
+
+  // ── Theme toggle handler ─────────────────────────────
+  $('#btnTheme').addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+
+    // Re-init mermaid with matching theme and re-render
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: next === 'light' ? 'default' : 'dark',
+      securityLevel: 'loose',
+      fontFamily: 'JetBrains Mono, monospace',
+    });
+    renderPreview();
+  });
 
   let toastTimer = null;
   function showToast(msg, type = '') {
