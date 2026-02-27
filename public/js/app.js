@@ -1263,6 +1263,8 @@ ${data.text}
 
   previewContainer.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
+    // Don't start pan when clicking on a draggable node
+    if (e.target.closest('g.node')) return;
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
@@ -1678,8 +1680,14 @@ ${data.text}
   previewPanel.appendChild(fullscreenExitBtn);
 
   function toggleFullscreen() {
-    previewPanel.classList.toggle('fullscreen-preview');
-    // Preserve zoom controls in fullscreen
+    const isEntering = previewPanel.classList.toggle('fullscreen-preview');
+    // Re-initialize node dragging after layout change so getScreenCTM() is recalculated
+    if (isEntering) {
+      setTimeout(() => {
+        if (cleanupNodeDrag) { cleanupNodeDrag(); cleanupNodeDrag = null; }
+        cleanupNodeDrag = enableNodeDragging();
+      }, 100);
+    }
   }
 
   $('#btnFullscreen').addEventListener('click', toggleFullscreen);
@@ -1942,10 +1950,73 @@ ${data.text}
     setTimeout(syncDragToCode, 50);
   });
 
-  // Apply saved positions after render
-  const origRenderPreview = renderPreview;
-  // We can't easily override renderPreview since it's used before this point.
-  // Instead, use a MutationObserver to apply positions after render.
+  // Update edge paths based on repositioned nodes
+  function updateEdgesForPositions(svg, positions) {
+    const edgePathEls = [...svg.querySelectorAll('g.edgePaths > path')];
+    const edgeLabelEls = [...svg.querySelectorAll('g.edgeLabels > g.edgeLabel')];
+
+    // Build lookup: node ID → g.node element + center
+    const nodeElements = {};
+    svg.querySelectorAll('g.node').forEach(g => {
+      const nodeId = g.id.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+      if (nodeId) {
+        const bbox = g.getBBox();
+        nodeElements[nodeId] = {
+          el: g,
+          cx: bbox.x + bbox.width / 2,
+          cy: bbox.y + bbox.height / 2,
+        };
+      }
+    });
+
+    edgePathEls.forEach((pathEl, i) => {
+      const d = pathEl.getAttribute('d');
+      if (!d) return;
+
+      let srcKey = null, tgtKey = null;
+      const idMatch = pathEl.id && pathEl.id.match(/^L_(.+?)_(.+?)_\d+$/);
+      if (idMatch) {
+        srcKey = idMatch[1];
+        tgtKey = idMatch[2];
+      }
+
+      // Fallback: proximity-based matching
+      if (!srcKey || !tgtKey) {
+        const nums = d.match(/-?\d+\.?\d*/g);
+        if (!nums || nums.length < 4) return;
+        const sx = parseFloat(nums[0]), sy = parseFloat(nums[1]);
+        const ex = parseFloat(nums[nums.length - 2]), ey = parseFloat(nums[nums.length - 1]);
+
+        let minDS = Infinity, minDT = Infinity;
+        for (const [id, data] of Object.entries(nodeElements)) {
+          const ds = Math.hypot(sx - data.cx, sy - data.cy);
+          const dt = Math.hypot(ex - data.cx, ey - data.cy);
+          if (ds < minDS) { minDS = ds; srcKey = id; }
+          if (dt < minDT) { minDT = dt; tgtKey = id; }
+        }
+      }
+
+      const srcDx = (srcKey && positions[srcKey]) ? positions[srcKey].x : 0;
+      const srcDy = (srcKey && positions[srcKey]) ? positions[srcKey].y : 0;
+      const tgtDx = (tgtKey && positions[tgtKey]) ? positions[tgtKey].x : 0;
+      const tgtDy = (tgtKey && positions[tgtKey]) ? positions[tgtKey].y : 0;
+
+      if (srcDx || srcDy || tgtDx || tgtDy) {
+        pathEl.setAttribute('d', shiftPathEnds(d, srcDx, srcDy, tgtDx, tgtDy));
+
+        // Move edge label with midpoint of shift
+        const labelEl = i < edgeLabelEls.length ? edgeLabelEls[i] : null;
+        if (labelEl) {
+          const midDx = (srcDx + tgtDx) / 2;
+          const midDy = (srcDy + tgtDy) / 2;
+          const currentTransform = labelEl.getAttribute('transform') || '';
+          labelEl.setAttribute('transform', `${currentTransform} translate(${midDx}, ${midDy})`);
+        }
+      }
+    });
+  }
+
+  // Apply saved positions (nodes + edges) after render
   const positionObserver = new MutationObserver(() => {
     const code = editor.getValue();
     const posMatch = code.match(/%% positions: (\{.*\})$/m);
@@ -1958,6 +2029,7 @@ ${data.text}
 
       // Apply positions after a small delay to ensure render is complete
       setTimeout(() => {
+        // 1. Apply node positions
         Object.entries(positions).forEach(([nodeId, pos]) => {
           const nodeG = svg.querySelector(`g.node[id*="-${nodeId}-"]`);
           if (nodeG) {
@@ -1965,6 +2037,13 @@ ${data.text}
             nodeG.setAttribute('transform', `${currentTransform} translate(${pos.x}, ${pos.y})`);
           }
         });
+
+        // 2. Update edge/arrow paths to match repositioned nodes
+        updateEdgesForPositions(svg, positions);
+
+        // 3. Re-initialize node dragging with updated transforms
+        if (cleanupNodeDrag) { cleanupNodeDrag(); cleanupNodeDrag = null; }
+        cleanupNodeDrag = enableNodeDragging();
       }, 50);
     } catch { /* ignore parse errors */ }
   });
