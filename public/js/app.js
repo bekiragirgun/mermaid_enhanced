@@ -570,14 +570,51 @@
     btnSend.disabled = false;
   }
 
-  // Apply code from chat
+  // Apply code from chat — with auto-fix on error
   chatMessages.addEventListener('click', (e) => {
     const btn = e.target.closest('.btn-apply');
     if (!btn) return;
     const code = decodeURIComponent(btn.dataset.code);
     editor.setValue(code);
-    renderPreview();
-    showToast('Kod uygulandı', 'success');
+
+    const id = 'mermaid-apply-' + Date.now();
+    mermaid
+      .render(id, code)
+      .then(({ svg }) => {
+        preview.innerHTML = svg;
+        previewError.style.display = 'none';
+        diagramModified = false;
+        if (cleanupNodeDrag) { cleanupNodeDrag(); cleanupNodeDrag = null; }
+        cleanupNodeDrag = enableNodeDragging();
+        showToast('Kod uygulandı', 'success');
+      })
+      .catch((err) => {
+        preview.innerHTML = '';
+        const errorMsg = err.message || 'Render hatası';
+        previewError.textContent = errorMsg;
+        previewError.style.display = 'block';
+        document.querySelectorAll('#d' + id).forEach((el) => el.remove());
+
+        // Auto-fix: send error back to AI
+        showToast('Render hatası — AI düzeltme isteniyor…', 'error');
+        const fixPrompt = `Ürettiğin mermaid kodu render hatası verdi. Hatayı oku, kodu düzelt ve tekrar gönder.
+
+HATA:
+${errorMsg}
+
+HATALI KOD:
+\`\`\`mermaid
+${code}
+\`\`\`
+
+Kurallar:
+- Sadece düzeltilmiş kodu \`\`\`mermaid bloğu içinde döndür
+- Diyagramın yapısını ve içeriğini değiştirme, sadece sözdizimini düzelt
+- Kısa bir açıklama ekle (ne düzelttin)`;
+
+        chatInput.value = fixPrompt;
+        sendChat();
+      });
   });
 
   btnSend.addEventListener('click', sendChat);
