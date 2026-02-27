@@ -1276,11 +1276,45 @@ ${data.text}
   });
 
   document.addEventListener('mouseup', () => {
-    if (!isResizing) return;
-    isResizing = false;
-    panelResizer.classList.remove('dragging');
+    if (!isResizing && !isVResizing) return;
+    if (isResizing) {
+      isResizing = false;
+      panelResizer.classList.remove('dragging');
+    }
+    if (isVResizing) {
+      isVResizing = false;
+      editorChatResizer.classList.remove('dragging');
+      editor.refresh(); // recalculate CodeMirror layout
+    }
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+  });
+
+  // ── Editor-Chat vertical resizer ───────────────────
+  const editorChatResizer = $('#editorChatResizer');
+  const editorSection = $('.editor-section');
+  const chatSection = $('.chat-section');
+  let isVResizing = false;
+
+  editorChatResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isVResizing = true;
+    editorChatResizer.classList.add('dragging');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isVResizing) return;
+    const parent = editorSection.parentElement;
+    const rect = parent.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+    const total = rect.height;
+    const pct = Math.max(15, Math.min(85, (offset / total) * 100));
+    editorSection.style.flex = 'none';
+    chatSection.style.flex = 'none';
+    editorSection.style.height = `calc(${pct}% - 2px)`;
+    chatSection.style.height = `calc(${100 - pct}% - 2px)`;
   });
 
   // ── Theme toggle handler ─────────────────────────────

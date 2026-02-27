@@ -331,6 +331,31 @@ body {
   background: var(--surface1) !important;
 }
 
+/* ========== Editor-Chat Resizer ========== */
+.editor-chat-resizer {
+  height: 4px;
+  background: var(--surface0);
+  cursor: row-resize;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.editor-chat-resizer:hover,
+.editor-chat-resizer.dragging {
+  background: var(--lavender);
+}
+
+.editor-chat-resizer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
 /* ========== Chat Section ========== */
 .chat-section {
   flex: 3;
