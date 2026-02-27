@@ -198,6 +198,8 @@ app.post('/api/chat', async (req, res) => {
 - Node ID'lerinde Türkçe karakter (ş,ç,ğ,ü,ö,ı) KULLANMA, sadece İngilizce harf/rakam/alt çizgi kullan
 - Türkçe metinleri tırnak veya köşeli parantez içinde yaz: A["Türkçe Metin"]
 - Her satırda yalnızca bir bağlantı tanımla
+- Stil değişikliklerinde mevcut diyagram yapısını KORU, sadece style/classDef/linkStyle satırları ekle veya düzenle
+- Kullanıcı "kalın çizgi", "renkli ok" gibi görsel değişiklik isterse diyagram kodunu DEĞİŞTİRME, sadece ilgili style/linkStyle satırlarını ekle
 
 # MERMAID v11 SÖZDİZİMİ REFERANSI
 
@@ -347,6 +349,70 @@ gitGraph
     commit
 \`\`\`
 
+# STİL VE BİÇİMLENDİRME (Flowchart)
+
+## Tek düğüm stilleme
+\`\`\`
+style A fill:#f9f,stroke:#333,stroke-width:4px,color:#000
+style B fill:#bbf,stroke:#f66,stroke-width:2px,stroke-dasharray: 5 5
+\`\`\`
+
+## Sınıf tanımlama ve uygulama (classDef/class)
+\`\`\`
+classDef onemli fill:#f96,stroke:#333,stroke-width:3px,color:#fff
+classDef varsayilan fill:#29b,stroke:#fff,stroke-width:1px,color:#fff
+class A,C onemli
+class B,D varsayilan
+\`\`\`
+
+## Ok/çizgi stilleme (linkStyle)
+\`\`\`
+linkStyle default stroke-width:3px
+linkStyle 0 stroke:#ff3,stroke-width:4px
+linkStyle 1,2 stroke:#f00,stroke-width:2px
+\`\`\`
+- "default" tüm okları etkiler
+- Numara: okların tanım sırasına göre 0'dan başlayan indeksi (ilk --> 0, ikinci --> 1, ...)
+- Virgülle birden fazla indeks verilebilir: linkStyle 0,1,2
+
+## Subgraph
+\`\`\`
+subgraph Baslik["Alt Grup Başlığı"]
+    A --> B
+end
+\`\`\`
+
+## Tam örnek (düğüm + çizgi stilleme)
+\`\`\`
+graph TD
+    A["Başla"] --> B{"Kontrol"}
+    B -->|Evet| C["İşlem"]
+    B -->|Hayır| D["Son"]
+    C --> D
+    style A fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
+    style B fill:#FF9800,stroke:#333,stroke-width:2px,color:#fff
+    classDef sonuc fill:#2196F3,stroke:#fff,stroke-width:2px,color:#fff
+    class C,D sonuc
+    linkStyle default stroke-width:3px
+    linkStyle 0 stroke:#4CAF50,stroke-width:4px
+\`\`\`
+
+## Stil özellikleri (kullanılabilir CSS özellikleri)
+- fill: arka plan rengi (#hex veya rgb)
+- stroke: kenarlık rengi
+- stroke-width: kenarlık kalınlığı (px)
+- stroke-dasharray: kesikli çizgi (ör: 5 5)
+- color: metin rengi
+- font-weight: kalın metin (bold)
+- font-size: metin boyutu
+
+## ÖNEMLİ KURALLAR
+- style/classDef/linkStyle satırları düğüm ve bağlantı tanımlarından SONRA yazılmalı
+- linkStyle indeksleri 0'dan başlar ve bağlantı tanım sırası ile eşleşir
+- Renk kodları MUTLAKA # ile başlamalı (#f00, #ff0000)
+- style satırında özellikler virgülle ayrılır (boşluk yok): fill:#f00,stroke:#333
+- "linkStyle default" TÜM oklara uygulanır, belirli oklar için numara kullan
+
 # YAYGIN HATALAR — BUNLARI YAPMA
 - ❌ graph TD; A-->B (noktalı virgül kullanma, yeni satır kullan)
 - ❌ A[Türkçe şçğüöı] (tırnak olmadan Türkçe → hata verir)
@@ -354,6 +420,9 @@ gitGraph
 - ❌ style bloğunda geçersiz CSS (renk kodları # ile başlamalı)
 - ❌ subgraph içinde yön belirtme (subgraph direction LR → bazı tiplerde hata)
 - ❌ Node ID'de boşluk veya özel karakter (A B, İşlem-1 → hata)
+- ❌ linkStyle 0 stroke-width:3px (YANLIŞ — özellikler arası virgül kullan)
+- ❌ linkStyle satırını bağlantılardan ÖNCE yazma (önce bağlantılar, sonra linkStyle)
+- ❌ style satırında boşluklu değerler: stroke-width: 4px (boşluk olmamalı: stroke-width:4px)
 
 Mevcut diyagram kodu:
 \`\`\`mermaid
