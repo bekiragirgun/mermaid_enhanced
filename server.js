@@ -4,6 +4,8 @@ const { writeFile, readFile, unlink, mkdir, readdir, stat } = require('fs/promis
 const path = require('path');
 const crypto = require('crypto');
 const { Readable } = require('stream');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,7 +13,7 @@ const MMDC_PATH = process.env.MMDC_PATH || '/opt/homebrew/bin/mmdc';
 const TMP_DIR = path.join(__dirname, 'tmp');
 const DIAGRAMS_DIR = path.join(__dirname, 'diagrams');
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const HISTORY_DIR = path.join(__dirname, 'chat_history');
@@ -161,6 +163,56 @@ app.delete('/api/history/:id', async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: 'Not found' });
+  }
+});
+
+// ── Document parse endpoint ───────────────────────────
+
+app.post('/api/parse-document', express.raw({ type: '*/*', limit: '10mb' }), async (req, res) => {
+  try {
+    const contentType = req.headers['content-type'] || '';
+    const fileName = (req.headers['x-file-name'] || 'document').toLowerCase();
+    let text = '';
+
+    if (fileName.endsWith('.pdf') || contentType.includes('pdf')) {
+      // PDF
+      const data = await pdfParse(req.body);
+      text = data.text;
+    } else if (fileName.endsWith('.docx') || contentType.includes('officedocument.wordprocessingml')) {
+      // DOCX (Microsoft Word)
+      const result = await mammoth.extractRawText({ buffer: req.body });
+      text = result.value;
+    } else if (fileName.endsWith('.doc') || fileName.endsWith('.odt') || fileName.endsWith('.ods') || fileName.endsWith('.odp')) {
+      // DOC / LibreOffice formats — convert via LibreOffice CLI
+      const tmpIn = path.join(TMP_DIR, `upload-${Date.now()}${path.extname(fileName)}`);
+      await writeFile(tmpIn, req.body);
+      try {
+        await new Promise((resolve, reject) => {
+          execFile('libreoffice', ['--headless', '--convert-to', 'txt:Text', '--outdir', TMP_DIR, tmpIn], { timeout: 15000 }, (err) => {
+            if (err) reject(new Error('LibreOffice dönüşüm hatası. LibreOffice kurulu mu?'));
+            else resolve();
+          });
+        });
+        const txtFile = tmpIn.replace(path.extname(tmpIn), '.txt');
+        text = await readFile(txtFile, 'utf-8');
+        await unlink(txtFile).catch(() => {});
+      } finally {
+        await unlink(tmpIn).catch(() => {});
+      }
+    } else {
+      // Plain text, markdown, csv, json, etc.
+      text = req.body.toString('utf-8');
+    }
+
+    // Truncate if too long (keep first ~8000 chars for LLM context)
+    const fullLength = text.length;
+    if (text.length > 8000) {
+      text = text.slice(0, 8000) + '\n\n[... metin kırpıldı, toplam ' + fullLength + ' karakter]';
+    }
+
+    res.json({ text, charCount: fullLength, fileName });
+  } catch (err) {
+    res.status(400).json({ error: 'Dosya okunamadı: ' + err.message });
   }
 });
 

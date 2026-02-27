@@ -1025,6 +1025,75 @@ Kurallar:
     return result;
   }
 
+  // ── File Upload (PDF, TXT, MD, CSV) ─────────────────
+  const fileInput = $('#fileInput');
+  const btnAttach = $('#btnAttach');
+
+  btnAttach.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = ''; // reset for re-upload
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      showToast('Dosya çok büyük (max 10MB)', 'error');
+      return;
+    }
+
+    const settings = loadSettings();
+    if (!settings.baseUrl || !settings.apiKey) {
+      showToast('Önce AI ayarlarını yapılandırın', 'error');
+      return;
+    }
+
+    showToast(`"${file.name}" okunuyor…`);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const res = await fetch('/api/parse-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'X-File-Name': file.name,
+        },
+        body: buffer,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Dosya okunamadı');
+      }
+
+      const data = await res.json();
+
+      if (!data.text || !data.text.trim()) {
+        showToast('Dosyadan metin çıkarılamadı', 'error');
+        return;
+      }
+
+      showToast(`${data.charCount} karakter okundu`, 'success');
+
+      // Send to AI chat with a diagram generation prompt
+      const prompt = `Aşağıdaki dokümanı analiz et ve içeriğine uygun bir Mermaid diyagramı oluştur.
+Doküman türüne göre en uygun diyagram tipini seç (flowchart, sequence, class, ER, mindmap, timeline vb.).
+Doküman ana konularını, ilişkileri ve akışları diyagrama yansıt.
+
+Dosya: ${file.name}
+
+Doküman İçeriği:
+---
+${data.text}
+---`;
+
+      chatInput.value = prompt;
+      sendChat();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
   // ── Voice Input (Web Speech API) ─────────────────────
   const btnMic = $('#btnMic');
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
