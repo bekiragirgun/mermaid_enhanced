@@ -1393,4 +1393,582 @@ ${data.text}
       toast.style.display = 'none';
     }, 2500);
   }
+
+  // ── 1. Template Gallery ──────────────────────────────
+  const templates = [
+    {
+      name: 'Akış Şeması (Flowchart)',
+      code: `graph TD
+    A["Başlangıç"] --> B{"Karar?"}
+    B -->|Evet| C["İşlem 1"]
+    B -->|Hayır| D["İşlem 2"]
+    C --> E["Son"]
+    D --> E`
+    },
+    {
+      name: 'Sıra Diyagramı (Sequence)',
+      code: `sequenceDiagram
+    participant K as Kullanici
+    participant S as Sunucu
+    participant VT as Veritabani
+    K->>S: İstek gönder
+    activate S
+    S->>VT: Sorgu
+    VT-->>S: Sonuç
+    S-->>K: Yanıt
+    deactivate S`
+    },
+    {
+      name: 'Sınıf Diyagramı (Class)',
+      code: `classDiagram
+    class Hayvan {
+        +String isim
+        +int yas
+        +sesCikar() String
+    }
+    class Kedi {
+        +miyavla()
+    }
+    class Kopek {
+        +havla()
+    }
+    Hayvan <|-- Kedi
+    Hayvan <|-- Kopek`
+    },
+    {
+      name: 'ER Diyagramı',
+      code: `erDiagram
+    KULLANICI ||--o{ SIPARIS : verir
+    SIPARIS ||--|{ URUN : icerir
+    KULLANICI {
+        int id PK
+        string ad
+        string email
+    }
+    SIPARIS {
+        int id PK
+        date tarih
+        float toplam
+    }
+    URUN {
+        int id PK
+        string ad
+        float fiyat
+    }`
+    },
+    {
+      name: 'Gantt Şeması',
+      code: `gantt
+    title Proje Plani
+    dateFormat YYYY-MM-DD
+    section Tasarim
+        Analiz           :a1, 2024-01-01, 7d
+        Wireframe        :a2, after a1, 5d
+    section Gelistirme
+        Backend          :b1, after a2, 14d
+        Frontend         :b2, after a2, 10d
+    section Test
+        Test             :c1, after b1, 7d`
+    },
+    {
+      name: 'Durum Diyagramı (State)',
+      code: `stateDiagram-v2
+    [*] --> Bekliyor
+    Bekliyor --> Isleniyor : istek geldi
+    Isleniyor --> Tamamlandi : basarili
+    Isleniyor --> Hata : hata olustu
+    Hata --> Bekliyor : tekrar dene
+    Tamamlandi --> [*]`
+    },
+    {
+      name: 'Pasta Grafik (Pie)',
+      code: `pie title Bütçe Dağılımı
+    "Geliştirme" : 40
+    "Tasarım" : 25
+    "Test" : 20
+    "Yönetim" : 15`
+    },
+    {
+      name: 'Zihin Haritası (Mindmap)',
+      code: `mindmap
+    root((Proje))
+        Planlama
+            Gereksinimler
+            Zaman Çizelgesi
+        Gelistirme
+            Frontend
+            Backend
+            Veritabani
+        Test
+            Birim Test
+            Entegrasyon
+        Dagitim`
+    }
+  ];
+
+  const templateModal = $('#templateModal');
+  const templateGrid = $('#templateGrid');
+
+  function renderTemplateGallery() {
+    templateGrid.innerHTML = templates.map((t, i) => `
+      <div class="template-card" data-idx="${i}">
+        <span class="template-card-title">${escapeHtml(t.name)}</span>
+        <div class="template-card-preview" id="tplPreview${i}"></div>
+        <button class="template-card-btn" data-idx="${i}">Kullan</button>
+      </div>
+    `).join('');
+
+    // Render small previews
+    templates.forEach((t, i) => {
+      const container = $(`#tplPreview${i}`);
+      const previewId = 'tpl-' + Date.now() + '-' + i;
+      mermaid.render(previewId, t.code).then(({ svg }) => {
+        container.innerHTML = svg;
+      }).catch(() => {
+        container.innerHTML = '<span style="color:var(--overlay0);font-size:11px">Önizleme yok</span>';
+        document.querySelectorAll('#d' + previewId).forEach(el => el.remove());
+      });
+    });
+  }
+
+  function openTemplateGallery() {
+    renderTemplateGallery();
+    templateModal.style.display = 'flex';
+  }
+
+  $('#btnTemplates').addEventListener('click', openTemplateGallery);
+  $('#btnCloseTemplates').addEventListener('click', () => { templateModal.style.display = 'none'; });
+  templateModal.addEventListener('click', (e) => {
+    if (e.target === templateModal) templateModal.style.display = 'none';
+  });
+
+  templateGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.template-card-btn') || e.target.closest('.template-card');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx);
+    if (isNaN(idx) || !templates[idx]) return;
+
+    // Load template into active tab
+    editor.setValue(templates[idx].code);
+    renderPreview();
+    templateModal.style.display = 'none';
+
+    // Update tab name
+    const activeTab = document.querySelector('.editor-tab.active');
+    if (activeTab) {
+      const title = activeTab.querySelector('.tab-title');
+      if (title) title.textContent = templates[idx].name;
+      const tabId = activeTab.dataset.tabId;
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab) tab.name = templates[idx].name;
+    }
+
+    showToast(`"${templates[idx].name}" yüklendi`, 'success');
+  });
+
+  // ── 2. Keyboard Shortcuts ────────────────────────────
+  const shortcutsModal = $('#shortcutsModal');
+  $('#btnCloseShortcuts').addEventListener('click', () => { shortcutsModal.style.display = 'none'; });
+  shortcutsModal.addEventListener('click', (e) => {
+    if (e.target === shortcutsModal) shortcutsModal.style.display = 'none';
+  });
+
+  function closeAllModals() {
+    settingsModal.style.display = 'none';
+    saveModal.style.display = 'none';
+    diagramsModal.style.display = 'none';
+    templateModal.style.display = 'none';
+    shortcutsModal.style.display = 'none';
+    const versionsModal = $('#versionsModal');
+    if (versionsModal) versionsModal.style.display = 'none';
+
+    // Exit fullscreen if active
+    const previewPanel = $('.preview-panel');
+    if (previewPanel.classList.contains('fullscreen-preview')) {
+      toggleFullscreen();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const mod = e.metaKey || e.ctrlKey;
+
+    // Escape → close modals / exit fullscreen
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeAllModals();
+      return;
+    }
+
+    // ? → shortcuts help (only when not in input)
+    if (e.key === '?' && !mod && !e.target.closest('textarea, input, .CodeMirror')) {
+      e.preventDefault();
+      shortcutsModal.style.display = 'flex';
+      return;
+    }
+
+    if (!mod) return;
+
+    // Ctrl+S → Save
+    if (e.key === 's' && !e.shiftKey) {
+      e.preventDefault();
+      $('#btnSave').click();
+      return;
+    }
+
+    // Ctrl+O → Open
+    if (e.key === 'o' && !e.shiftKey) {
+      e.preventDefault();
+      $('#btnOpen').click();
+      return;
+    }
+
+    // Ctrl+E → PNG export
+    if (e.key === 'e' && !e.shiftKey) {
+      e.preventDefault();
+      document.querySelector('.btn-export[data-format="png"]').click();
+      return;
+    }
+
+    // Ctrl+Enter → send chat
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
+      return;
+    }
+
+    // Ctrl+Shift+F → fullscreen
+    if (e.key === 'F' && e.shiftKey) {
+      e.preventDefault();
+      toggleFullscreen();
+      return;
+    }
+
+    // Ctrl+T → templates
+    if (e.key === 't' && !e.shiftKey) {
+      e.preventDefault();
+      openTemplateGallery();
+      return;
+    }
+
+    // Ctrl+L → theme toggle
+    if (e.key === 'l' && !e.shiftKey) {
+      e.preventDefault();
+      $('#btnTheme').click();
+      return;
+    }
+
+    // Ctrl+/ → shortcuts help
+    if (e.key === '/') {
+      e.preventDefault();
+      shortcutsModal.style.display = 'flex';
+      return;
+    }
+  });
+
+  // ── 3. Fullscreen Preview ────────────────────────────
+  const previewPanel = $('.preview-panel');
+
+  // Add exit button to preview panel
+  const fullscreenExitBtn = document.createElement('button');
+  fullscreenExitBtn.className = 'fullscreen-exit-btn';
+  fullscreenExitBtn.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    Çık (ESC)
+  `;
+  previewPanel.appendChild(fullscreenExitBtn);
+
+  function toggleFullscreen() {
+    previewPanel.classList.toggle('fullscreen-preview');
+    // Preserve zoom controls in fullscreen
+  }
+
+  $('#btnFullscreen').addEventListener('click', toggleFullscreen);
+  fullscreenExitBtn.addEventListener('click', toggleFullscreen);
+
+  // ── 4. Version History ───────────────────────────────
+  const versionsModal = $('#versionsModal');
+  const versionsList = $('#versionsList');
+  const versionsEmpty = $('#versionsEmpty');
+
+  $('#btnCloseVersions').addEventListener('click', () => { versionsModal.style.display = 'none'; });
+  versionsModal.addEventListener('click', (e) => {
+    if (e.target === versionsModal) versionsModal.style.display = 'none';
+  });
+
+  async function openVersionHistory(diagramId) {
+    versionsModal.style.display = 'flex';
+    versionsList.innerHTML = '<div class="diagrams-loading">Yükleniyor…</div>';
+    versionsEmpty.style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/diagrams/${diagramId}/versions`);
+      const versions = await res.json();
+
+      if (!versions.length) {
+        versionsList.innerHTML = '';
+        versionsEmpty.style.display = 'block';
+        return;
+      }
+
+      versionsEmpty.style.display = 'none';
+      versionsList.innerHTML = versions.map(v => `
+        <div class="diagram-item" data-diagram-id="${diagramId}" data-version-id="${v.id}">
+          <div class="diagram-item-info">
+            <span class="diagram-item-date">${new Date(parseInt(v.id)).toLocaleString('tr-TR')}</span>
+            <span class="version-item-code">${escapeHtml(v.codePreview)}</span>
+          </div>
+          <div class="diagram-item-actions">
+            <button class="btn btn-open-diagram btn-restore-version" data-diagram-id="${diagramId}" data-version-id="${v.id}">Yükle</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      versionsList.innerHTML = '<div class="diagrams-loading">Hata: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  versionsList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-restore-version');
+    if (!btn) return;
+    const diagramId = btn.dataset.diagramId;
+    const versionId = btn.dataset.versionId;
+
+    try {
+      const res = await fetch(`/api/diagrams/${diagramId}/versions/${versionId}`);
+      if (!res.ok) throw new Error('Versiyon bulunamadı');
+      const data = await res.json();
+      editor.setValue(data.code);
+      renderPreview();
+      versionsModal.style.display = 'none';
+      diagramsModal.style.display = 'none';
+      showToast('Eski versiyon yüklendi', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  // Add "Geçmiş" button dynamically when diagrams modal opens
+  const diagramsObserver = new MutationObserver(() => {
+    diagramsList.querySelectorAll('.diagram-item').forEach(item => {
+      const id = item.dataset.id;
+      const actions = item.querySelector('.diagram-item-actions');
+      if (actions && !actions.querySelector('.btn-versions')) {
+        const vBtn = document.createElement('button');
+        vBtn.className = 'btn btn-versions';
+        vBtn.dataset.id = id;
+        vBtn.textContent = 'Geçmiş';
+        vBtn.title = 'Sürüm Geçmişi';
+        vBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openVersionHistory(id);
+        });
+        actions.insertBefore(vBtn, actions.firstChild);
+      }
+    });
+  });
+  diagramsObserver.observe(diagramsList, { childList: true });
+
+  // ── 5. Multi-tab Editor ──────────────────────────────
+  const editorTabs = $('#editorTabs');
+  let tabCounter = 1;
+  const tabs = [
+    { id: 'tab-1', name: 'Adsız', code: editor.getValue(), scrollPos: { left: 0, top: 0 } }
+  ];
+  let activeTabId = 'tab-1';
+
+  function renderTabs() {
+    const tabsHtml = tabs.map(t => `
+      <div class="editor-tab ${t.id === activeTabId ? 'active' : ''}" data-tab-id="${t.id}">
+        <span class="tab-title">${escapeHtml(t.name)}</span>
+        ${tabs.length > 1 ? '<button class="tab-close" title="Kapat">&times;</button>' : ''}
+      </div>
+    `).join('');
+    editorTabs.innerHTML = tabsHtml + '<button class="tab-add" id="btnAddTab" title="Yeni Sekme">+</button>';
+
+    // Re-bind add button
+    $('#btnAddTab').addEventListener('click', addNewTab);
+  }
+
+  function switchTab(tabId) {
+    // Save current tab state
+    const currentTab = tabs.find(t => t.id === activeTabId);
+    if (currentTab) {
+      currentTab.code = editor.getValue();
+      const scrollInfo = editor.getScrollInfo();
+      currentTab.scrollPos = { left: scrollInfo.left, top: scrollInfo.top };
+    }
+
+    // Switch to new tab
+    activeTabId = tabId;
+    const newTab = tabs.find(t => t.id === tabId);
+    if (newTab) {
+      editor.setValue(newTab.code);
+      editor.scrollTo(newTab.scrollPos.left, newTab.scrollPos.top);
+      renderPreview();
+    }
+    renderTabs();
+  }
+
+  function addNewTab() {
+    if (tabs.length >= 10) {
+      showToast('Maksimum 10 sekme açılabilir', 'error');
+      return;
+    }
+
+    // Save current tab
+    const currentTab = tabs.find(t => t.id === activeTabId);
+    if (currentTab) {
+      currentTab.code = editor.getValue();
+    }
+
+    tabCounter++;
+    const newTab = {
+      id: 'tab-' + tabCounter,
+      name: 'Adsız',
+      code: defaultCode,
+      scrollPos: { left: 0, top: 0 }
+    };
+    tabs.push(newTab);
+    activeTabId = newTab.id;
+    editor.setValue(newTab.code);
+    renderPreview();
+    renderTabs();
+  }
+
+  function closeTab(tabId) {
+    if (tabs.length <= 1) return;
+    const idx = tabs.findIndex(t => t.id === tabId);
+    if (idx === -1) return;
+
+    tabs.splice(idx, 1);
+
+    if (activeTabId === tabId) {
+      // Switch to adjacent tab
+      const newIdx = Math.min(idx, tabs.length - 1);
+      activeTabId = tabs[newIdx].id;
+      editor.setValue(tabs[newIdx].code);
+      editor.scrollTo(tabs[newIdx].scrollPos.left, tabs[newIdx].scrollPos.top);
+      renderPreview();
+    }
+    renderTabs();
+  }
+
+  editorTabs.addEventListener('click', (e) => {
+    const closeBtn = e.target.closest('.tab-close');
+    if (closeBtn) {
+      const tabEl = closeBtn.closest('.editor-tab');
+      closeTab(tabEl.dataset.tabId);
+      return;
+    }
+    const tabEl = e.target.closest('.editor-tab');
+    if (tabEl && tabEl.dataset.tabId !== activeTabId) {
+      switchTab(tabEl.dataset.tabId);
+    }
+  });
+
+  // Update tab name when diagram is opened
+  diagramsList.addEventListener('click', (e) => {
+    const openBtn = e.target.closest('.btn-open-diagram');
+    if (!openBtn) return;
+    // After loading diagram, update tab name
+    const id = openBtn.dataset.id;
+    const item = openBtn.closest('.diagram-item');
+    if (item) {
+      const nameEl = item.querySelector('.diagram-item-name');
+      if (nameEl) {
+        // Will update tab name after the diagram loads
+        setTimeout(() => {
+          const currentTab = tabs.find(t => t.id === activeTabId);
+          if (currentTab) {
+            currentTab.name = nameEl.textContent;
+            renderTabs();
+          }
+        }, 100);
+      }
+    }
+  });
+
+  // ── 6. Drag-to-Code Sync ─────────────────────────────
+  // Patch commitDrag to update mermaid code with position comments
+  const origCommitDrag = commitDrag;
+
+  // We need to hook into the drag system. Since enableNodeDragging creates
+  // commitDrag as a closure, we patch the approach differently:
+  // After each drag, store positions and append to code.
+  function syncDragToCode() {
+    const svg = preview.querySelector('svg');
+    if (!svg || !diagramModified) return;
+
+    const nodeGroups = [...svg.querySelectorAll('g.node')];
+    if (!nodeGroups.length) return;
+
+    const positions = {};
+    nodeGroups.forEach(g => {
+      const t = g.getAttribute('transform') || '';
+      const matches = t.match(/translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/g);
+      if (matches && matches.length > 1) {
+        // Multiple translates mean the node was dragged
+        let tx = 0, ty = 0;
+        // Skip first translate (original position), sum the rest (drag offset)
+        matches.slice(1).forEach(m => {
+          const parts = m.match(/-?[\d.]+/g);
+          if (parts && parts.length >= 2) {
+            tx += parseFloat(parts[0]);
+            ty += parseFloat(parts[1]);
+          }
+        });
+        if (Math.abs(tx) > 1 || Math.abs(ty) > 1) {
+          // Extract node ID from group ID (e.g., "flowchart-A-123" → "A")
+          const nodeId = g.id.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+          if (nodeId) {
+            positions[nodeId] = { x: Math.round(tx), y: Math.round(ty) };
+          }
+        }
+      }
+    });
+
+    if (Object.keys(positions).length === 0) return;
+
+    // Update code: remove old position comments, add new ones
+    let code = editor.getValue();
+    code = code.replace(/\n%% positions: \{.*\}$/m, '');
+    code = code.trimEnd() + '\n%% positions: ' + JSON.stringify(positions);
+    editor.setValue(code);
+  }
+
+  // Listen for mouseup on preview to sync drag to code
+  previewContainer.addEventListener('mouseup', () => {
+    // Small delay to let commitDrag run first
+    setTimeout(syncDragToCode, 50);
+  });
+
+  // Apply saved positions after render
+  const origRenderPreview = renderPreview;
+  // We can't easily override renderPreview since it's used before this point.
+  // Instead, use a MutationObserver to apply positions after render.
+  const positionObserver = new MutationObserver(() => {
+    const code = editor.getValue();
+    const posMatch = code.match(/%% positions: (\{.*\})$/m);
+    if (!posMatch) return;
+
+    try {
+      const positions = JSON.parse(posMatch[1]);
+      const svg = preview.querySelector('svg');
+      if (!svg) return;
+
+      // Apply positions after a small delay to ensure render is complete
+      setTimeout(() => {
+        Object.entries(positions).forEach(([nodeId, pos]) => {
+          const nodeG = svg.querySelector(`g.node[id*="-${nodeId}-"]`);
+          if (nodeG) {
+            const currentTransform = nodeG.getAttribute('transform') || '';
+            nodeG.setAttribute('transform', `${currentTransform} translate(${pos.x}, ${pos.y})`);
+          }
+        });
+      }, 50);
+    } catch { /* ignore parse errors */ }
+  });
+
+  positionObserver.observe(preview, { childList: true, subtree: true });
+
 })();

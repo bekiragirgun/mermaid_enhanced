@@ -26,6 +26,10 @@
       </div>
     </div>
     <div class="toolbar-right">
+      <button class="btn btn-templates" id="btnTemplates" title="Şablon Galerisi (Ctrl+T)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Şablonlar
+      </button>
       <button class="btn btn-stop" id="btnStop" title="AI Yanıtını Durdur" style="display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
         Stop
@@ -58,6 +62,9 @@
       <button class="btn btn-export" data-format="svg" title="SVG olarak indir">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         SVG
+      </button>
+      <button class="btn btn-fullscreen" id="btnFullscreen" title="Tam Ekran Önizleme (Ctrl+Shift+F)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
       <div class="toolbar-divider"></div>
       <button class="btn btn-theme" id="btnTheme" title="Tema Değiştir">
@@ -102,6 +109,13 @@
     <section class="panel right-panel">
       <!-- Editor -->
       <div class="editor-section">
+        <div class="editor-tabs" id="editorTabs">
+          <div class="editor-tab active" data-tab-id="tab-1">
+            <span class="tab-title">Adsız</span>
+            <button class="tab-close" title="Kapat">&times;</button>
+          </div>
+          <button class="tab-add" id="btnAddTab" title="Yeni Sekme">+</button>
+        </div>
         <div class="panel-header">
           <span>Kod Editörü</span>
         </div>
@@ -216,6 +230,61 @@
         <div id="historyList" class="diagrams-list"></div>
         <div id="historyEmpty" class="diagrams-empty" style="display:none">
           Henüz chat geçmişi yok.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Gallery Modal -->
+  <div class="modal-overlay" id="templateModal" style="display:none">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>Şablon Galerisi</h3>
+        <button class="btn-icon modal-close" id="btnCloseTemplates">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="template-grid" id="templateGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div class="modal-overlay" id="shortcutsModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Klavye Kısayolları</h3>
+        <button class="btn-icon modal-close" id="btnCloseShortcuts">&times;</button>
+      </div>
+      <div class="modal-body">
+        <table class="shortcuts-table">
+          <tbody>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Kaydet</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Aç</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>PNG Export</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>AI Chat Gönder</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Tam Ekran</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>Şablon Galerisi</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Tema Değiştir</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Modal Kapat</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Bu Yardımı Göster</td></tr>
+          </tbody>
+        </table>
+        <p class="shortcuts-note">Mac'te Ctrl yerine Cmd kullanın</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Version History Modal -->
+  <div class="modal-overlay" id="versionsModal" style="display:none">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>Sürüm Geçmişi</h3>
+        <button class="btn-icon modal-close" id="btnCloseVersions">&times;</button>
+      </div>
+      <div class="modal-body diagrams-list-body">
+        <div id="versionsList" class="diagrams-list"></div>
+        <div id="versionsEmpty" class="diagrams-empty" style="display:none">
+          Bu diyagramın sürüm geçmişi yok.
         </div>
       </div>
     </div>

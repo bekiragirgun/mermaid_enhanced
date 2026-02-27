@@ -925,3 +925,281 @@ body {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ========== Editor Tabs ========== */
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  background: var(--crust);
+  border-bottom: 1px solid var(--surface0);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.editor-tabs::-webkit-scrollbar { display: none; }
+
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--subtext0);
+  background: var(--crust);
+  border-right: 1px solid var(--surface0);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition);
+  min-width: 0;
+}
+
+.editor-tab:hover {
+  background: var(--mantle);
+  color: var(--text);
+}
+
+.editor-tab.active {
+  background: var(--base);
+  color: var(--lavender);
+  border-bottom: 2px solid var(--lavender);
+}
+
+.tab-title {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--overlay0);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  line-height: 1;
+  padding: 0;
+}
+
+.tab-close:hover {
+  background: var(--surface1);
+  color: var(--red);
+}
+
+.tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--overlay0);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+
+.tab-add:hover {
+  background: var(--surface0);
+  color: var(--text);
+}
+
+/* ========== Template Gallery ========== */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.template-card {
+  background: var(--mantle);
+  border: 1px solid var(--surface0);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-card:hover {
+  border-color: var(--lavender);
+  background: var(--surface0);
+}
+
+.template-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.template-card-preview {
+  height: 80px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--base);
+  border-radius: var(--radius-sm);
+}
+
+.template-card-preview svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.template-card-btn {
+  padding: 4px 10px;
+  background: var(--lavender);
+  color: var(--crust);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-end;
+  transition: opacity var(--transition);
+}
+
+.template-card-btn:hover { opacity: 0.85; }
+
+/* ========== Keyboard Shortcuts ========== */
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shortcuts-table td {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.shortcuts-table td:first-child {
+  white-space: nowrap;
+  color: var(--subtext0);
+}
+
+.shortcuts-table td:last-child {
+  color: var(--text);
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  border-radius: 3px;
+}
+
+.shortcuts-note {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--overlay0);
+  text-align: center;
+}
+
+/* ========== Fullscreen Preview ========== */
+.fullscreen-preview {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 999 !important;
+  background: var(--base);
+  display: flex;
+  flex-direction: column;
+}
+
+.fullscreen-preview .panel-header {
+  z-index: 1000;
+}
+
+.fullscreen-preview .preview-container {
+  flex: 1;
+}
+
+.fullscreen-exit-btn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1001;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--surface1);
+  color: var(--text);
+  border: 1px solid var(--surface2);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.fullscreen-exit-btn:hover {
+  background: var(--red);
+  color: var(--crust);
+  border-color: var(--red);
+}
+
+.fullscreen-preview .fullscreen-exit-btn {
+  display: inline-flex;
+}
+
+/* ========== Toolbar template/fullscreen buttons ========== */
+.btn-templates {
+  background: transparent;
+  border-color: var(--surface1);
+}
+
+.btn-templates:hover {
+  background: var(--surface0);
+  border-color: var(--surface1);
+}
+
+.btn-fullscreen {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-fullscreen:hover {
+  background: var(--surface0);
+  border-color: var(--surface0);
+}
+
+/* ========== Version History ========== */
+.btn-versions {
+  background: transparent;
+  color: var(--overlay1);
+  border-color: var(--surface1);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.btn-versions:hover {
+  background: var(--surface0);
+  color: var(--text);
+}
+
+.version-item-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--overlay0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}

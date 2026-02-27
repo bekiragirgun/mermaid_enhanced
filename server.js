@@ -19,9 +19,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 const HISTORY_DIR = path.join(__dirname, 'chat_history');
 
 // Ensure directories exist
+const VERSIONS_DIR = path.join(DIAGRAMS_DIR, 'versions');
+
 mkdir(TMP_DIR, { recursive: true }).catch(() => {});
 mkdir(DIAGRAMS_DIR, { recursive: true }).catch(() => {});
 mkdir(HISTORY_DIR, { recursive: true }).catch(() => {});
+mkdir(VERSIONS_DIR, { recursive: true }).catch(() => {});
 
 // ── Diagram persistence endpoints ─────────────────────
 
@@ -40,7 +43,7 @@ app.get('/api/diagrams', async (req, res) => {
     const files = await readdir(DIAGRAMS_DIR);
     const diagrams = [];
     for (const file of files) {
-      if (!file.endsWith('.json')) continue;
+      if (!file.endsWith('.json') || file === 'versions') continue;
       try {
         const content = await readFile(path.join(DIAGRAMS_DIR, file), 'utf-8');
         const data = JSON.parse(content);
@@ -69,6 +72,13 @@ app.post('/api/diagrams', async (req, res) => {
   try {
     const existing = await readFile(filePath, 'utf-8');
     data = JSON.parse(existing);
+
+    // Save old version before overwriting
+    const versionDir = path.join(VERSIONS_DIR, slug);
+    await mkdir(versionDir, { recursive: true });
+    const versionFile = path.join(versionDir, `${Date.now()}.json`);
+    await writeFile(versionFile, JSON.stringify({ name: data.name, code: data.code, savedAt: data.updatedAt }, null, 2), 'utf-8');
+
     data.code = code;
     data.name = name;
     data.updatedAt = now;
@@ -102,6 +112,44 @@ app.delete('/api/diagrams/:id', async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: 'Diagram not found' });
+  }
+});
+
+// ── Version history endpoints ─────────────────────────
+
+// List versions for a diagram
+app.get('/api/diagrams/:id/versions', async (req, res) => {
+  try {
+    const versionDir = path.join(VERSIONS_DIR, req.params.id);
+    const files = await readdir(versionDir).catch(() => []);
+    const versions = [];
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const content = await readFile(path.join(versionDir, file), 'utf-8');
+        const data = JSON.parse(content);
+        versions.push({
+          id: file.replace('.json', ''),
+          savedAt: data.savedAt,
+          codePreview: (data.code || '').slice(0, 100),
+        });
+      } catch { /* skip */ }
+    }
+    versions.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+    res.json(versions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get a specific version
+app.get('/api/diagrams/:id/versions/:versionId', async (req, res) => {
+  try {
+    const filePath = path.join(VERSIONS_DIR, req.params.id, `${req.params.versionId}.json`);
+    const content = await readFile(filePath, 'utf-8');
+    res.json(JSON.parse(content));
+  } catch {
+    res.status(404).json({ error: 'Version not found' });
   }
 });
 
