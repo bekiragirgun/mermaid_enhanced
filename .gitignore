@@ -1,6 +1,7 @@
 node_modules/
 tmp/
 diagrams/
+chat_history/
 .DS_Store
 *.log
 .server.pid

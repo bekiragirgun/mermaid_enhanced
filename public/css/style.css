@@ -597,6 +597,34 @@ body {
 .btn-fetch-models:hover { background: var(--surface1); color: var(--text); }
 .btn-fetch-models:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ========== Modal Tabs ========== */
+.modal-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.modal-tab {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--subtext0);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition);
+}
+
+.modal-tab:hover {
+  color: var(--text);
+}
+
+.modal-tab.active {
+  color: var(--lavender);
+  border-bottom-color: var(--lavender);
+}
+
 /* ========== Diagrams List Modal ========== */
 .modal-wide { width: 500px; }
 
@@ -683,6 +711,20 @@ body {
   background: var(--red);
   color: var(--crust);
   border-color: var(--red);
+}
+
+.history-item-preview {
+  font-size: 11px;
+  color: var(--overlay0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.history-item-meta {
+  font-size: 10px;
+  color: var(--surface2);
 }
 
 .btn-save, .btn-open, .btn-clear {

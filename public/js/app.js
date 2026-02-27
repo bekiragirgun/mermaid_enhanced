@@ -375,7 +375,35 @@
     }
   }
 
-  $('#btnOpen').addEventListener('click', loadDiagramList);
+  // Tab switching in Open modal
+  const tabDiagrams = $('#tabDiagrams');
+  const tabHistory = $('#tabHistory');
+  const historyList = $('#historyList');
+  const historyEmpty = $('#historyEmpty');
+
+  diagramsModal.querySelectorAll('.modal-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      diagramsModal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      if (tab.dataset.tab === 'diagrams') {
+        tabDiagrams.style.display = '';
+        tabHistory.style.display = 'none';
+      } else {
+        tabDiagrams.style.display = 'none';
+        tabHistory.style.display = '';
+        loadHistoryList();
+      }
+    });
+  });
+
+  $('#btnOpen').addEventListener('click', () => {
+    // Reset to diagrams tab
+    diagramsModal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    diagramsModal.querySelector('[data-tab="diagrams"]').classList.add('active');
+    tabDiagrams.style.display = '';
+    tabHistory.style.display = 'none';
+    loadDiagramList();
+  });
   $('#btnCloseDiagrams').addEventListener('click', () => { diagramsModal.style.display = 'none'; });
   diagramsModal.addEventListener('click', (e) => { if (e.target === diagramsModal) diagramsModal.style.display = 'none'; });
 
@@ -448,6 +476,110 @@
       }
     }
   });
+
+  // ── Chat History ───────────────────────────────────
+  async function loadHistoryList() {
+    historyList.innerHTML = '<div class="diagrams-loading">Yükleniyor…</div>';
+    historyEmpty.style.display = 'none';
+    try {
+      const res = await fetch('/api/history');
+      const items = await res.json();
+      if (!items.length) {
+        historyList.innerHTML = '';
+        historyEmpty.style.display = 'block';
+        return;
+      }
+      historyEmpty.style.display = 'none';
+      historyList.innerHTML = items.map((h) => `
+        <div class="diagram-item" data-id="${h.id}">
+          <div class="diagram-item-info">
+            <span class="diagram-item-name">${escapeHtml(h.title)}</span>
+            <span class="history-item-preview">${escapeHtml(h.preview)}</span>
+            <span class="history-item-meta">${h.messageCount} mesaj · ${new Date(h.updatedAt).toLocaleString('tr-TR')}</span>
+          </div>
+          <div class="diagram-item-actions">
+            <button class="btn btn-open-diagram" data-id="${h.id}" title="Yükle">Yükle</button>
+            <button class="btn btn-delete-diagram" data-id="${h.id}" title="Sil">Sil</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      historyList.innerHTML = '<div class="diagrams-loading">Hata: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  historyList.addEventListener('click', async (e) => {
+    const openBtn = e.target.closest('.btn-open-diagram');
+    const deleteBtn = e.target.closest('.btn-delete-diagram');
+
+    if (openBtn) {
+      const id = openBtn.dataset.id;
+      try {
+        const res = await fetch(`/api/history/${id}`);
+        if (!res.ok) throw new Error('Geçmiş bulunamadı');
+        const data = await res.json();
+
+        // Restore diagram code
+        if (data.diagramCode) {
+          editor.setValue(data.diagramCode);
+          renderPreview();
+        }
+
+        // Restore chat messages
+        chatHistory = data.messages || [];
+        chatMessages.innerHTML = '';
+        for (const msg of chatHistory) {
+          if (msg.role === 'user') {
+            addChatMessage('user', escapeHtml(msg.content));
+          } else if (msg.role === 'assistant') {
+            const mermaidCode = extractMermaidCode(msg.content);
+            let html = renderMarkdown(msg.content);
+            if (mermaidCode) {
+              html += `<button class="btn-apply" data-code="${encodeURIComponent(mermaidCode)}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Kodu Uygula
+              </button>`;
+            }
+            addChatMessage('assistant', html);
+          }
+        }
+
+        diagramsModal.style.display = 'none';
+        showToast(`"${data.title}" yüklendi`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    if (deleteBtn) {
+      const id = deleteBtn.dataset.id;
+      const item = deleteBtn.closest('.diagram-item');
+      const name = item.querySelector('.diagram-item-name').textContent;
+      if (!confirm(`"${name}" silinecek. Emin misiniz?`)) return;
+      try {
+        const res = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Silme başarısız');
+        item.remove();
+        if (!historyList.children.length) historyEmpty.style.display = 'block';
+        showToast('Geçmiş silindi', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+  });
+
+  // Auto-save chat after each AI response
+  function autoSaveChatHistory() {
+    if (chatHistory.length < 2) return; // at least 1 user + 1 assistant
+    fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatHistory,
+        diagramCode: editor.getValue(),
+      }),
+    }).catch(() => {}); // silent save
+  }
 
   // ── Stop & Clear ────────────────────────────────────
   const btnStop = $('#btnStop');
@@ -596,6 +728,7 @@
     isStreaming = false;
     chatStatus.textContent = '';
     btnSend.disabled = false;
+    autoSaveChatHistory();
   }
 
   // Apply code from chat — with auto-fix on error

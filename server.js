@@ -14,9 +14,12 @@ const DIAGRAMS_DIR = path.join(__dirname, 'diagrams');
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+const HISTORY_DIR = path.join(__dirname, 'chat_history');
+
 // Ensure directories exist
 mkdir(TMP_DIR, { recursive: true }).catch(() => {});
 mkdir(DIAGRAMS_DIR, { recursive: true }).catch(() => {});
+mkdir(HISTORY_DIR, { recursive: true }).catch(() => {});
 
 // ── Diagram persistence endpoints ─────────────────────
 
@@ -97,6 +100,67 @@ app.delete('/api/diagrams/:id', async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: 'Diagram not found' });
+  }
+});
+
+// ── Chat history endpoints ────────────────────────────
+
+app.get('/api/history', async (req, res) => {
+  try {
+    const files = await readdir(HISTORY_DIR);
+    const items = [];
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      const filePath = path.join(HISTORY_DIR, f);
+      const s = await stat(filePath);
+      const data = JSON.parse(await readFile(filePath, 'utf-8'));
+      items.push({
+        id: f.replace('.json', ''),
+        title: data.title || 'Adsız Sohbet',
+        preview: data.preview || '',
+        messageCount: data.messages ? data.messages.length : 0,
+        createdAt: data.createdAt || s.birthtime.toISOString(),
+        updatedAt: data.updatedAt || s.mtime.toISOString(),
+      });
+    }
+    items.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    res.json(items);
+  } catch {
+    res.json([]);
+  }
+});
+
+app.post('/api/history', async (req, res) => {
+  const { title, messages, diagramCode } = req.body;
+  if (!messages || !messages.length) return res.status(400).json({ error: 'No messages' });
+
+  const id = Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
+  const firstUserMsg = messages.find(m => m.role === 'user');
+  const autoTitle = title || (firstUserMsg ? firstUserMsg.content.slice(0, 60) : 'Adsız Sohbet');
+  const preview = firstUserMsg ? firstUserMsg.content.slice(0, 100) : '';
+  const now = new Date().toISOString();
+
+  const data = { title: autoTitle, preview, messages, diagramCode, createdAt: now, updatedAt: now };
+  await writeFile(path.join(HISTORY_DIR, id + '.json'), JSON.stringify(data, null, 2));
+  res.json({ id, title: autoTitle });
+});
+
+app.get('/api/history/:id', async (req, res) => {
+  try {
+    const filePath = path.join(HISTORY_DIR, req.params.id + '.json');
+    const data = JSON.parse(await readFile(filePath, 'utf-8'));
+    res.json(data);
+  } catch {
+    res.status(404).json({ error: 'Not found' });
+  }
+});
+
+app.delete('/api/history/:id', async (req, res) => {
+  try {
+    await unlink(path.join(HISTORY_DIR, req.params.id + '.json'));
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'Not found' });
   }
 });
 
