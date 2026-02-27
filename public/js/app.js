@@ -1854,6 +1854,11 @@ ${data.text}
   }
 
   editorTabs.addEventListener('click', (e) => {
+    // "+" button
+    if (e.target.closest('.tab-add')) {
+      addNewTab();
+      return;
+    }
     const closeBtn = e.target.closest('.tab-close');
     if (closeBtn) {
       const tabEl = closeBtn.closest('.editor-tab');
@@ -1889,11 +1894,6 @@ ${data.text}
   });
 
   // ── 6. Drag-to-Code Sync ─────────────────────────────
-  // Patch commitDrag to update mermaid code with position comments
-  const origCommitDrag = commitDrag;
-
-  // We need to hook into the drag system. Since enableNodeDragging creates
-  // commitDrag as a closure, we patch the approach differently:
   // After each drag, store positions and append to code.
   function syncDragToCode() {
     const svg = preview.querySelector('svg');
