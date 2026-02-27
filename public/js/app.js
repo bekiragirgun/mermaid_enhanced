@@ -110,13 +110,40 @@
     styleEl.textContent = `text, .label { font-family: sans-serif; }`;
     clone.insertBefore(styleEl, clone.firstChild);
 
-    // Set explicit dimensions from viewBox for correct canvas rendering
-    const vb = clone.getAttribute('viewBox');
-    if (vb) {
-      const parts = vb.split(/[\s,]+/).map(Number);
-      clone.setAttribute('width', parts[2]);
-      clone.setAttribute('height', parts[3]);
-    }
+    // Expand viewBox on the clone to fit all dragged nodes (for export only)
+    const vbAttr = clone.getAttribute('viewBox');
+    const origVB = vbAttr ? vbAttr.split(/[\s,]+/).map(Number) : [0, 0, 500, 500];
+    let minX = origVB[0], minY = origVB[1];
+    let maxX = origVB[0] + origVB[2], maxY = origVB[1] + origVB[3];
+    const pad = 40;
+
+    clone.querySelectorAll('g.node').forEach((g) => {
+      const bbox = g.getBBox();
+      const t = g.getAttribute('transform') || '';
+      let tx = 0, ty = 0;
+      const matches = t.match(/translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const parts = m.match(/-?[\d.]+/g);
+          if (parts && parts.length >= 2) { tx += parseFloat(parts[0]); ty += parseFloat(parts[1]); }
+        });
+      }
+      const nMinX = bbox.x + tx - pad;
+      const nMinY = bbox.y + ty - pad;
+      const nMaxX = bbox.x + bbox.width + tx + pad;
+      const nMaxY = bbox.y + bbox.height + ty + pad;
+      if (nMinX < minX) minX = nMinX;
+      if (nMinY < minY) minY = nMinY;
+      if (nMaxX > maxX) maxX = nMaxX;
+      if (nMaxY > maxY) maxY = nMaxY;
+    });
+
+    const w = maxX - minX;
+    const h = maxY - minY;
+    clone.setAttribute('viewBox', `${minX} ${minY} ${w} ${h}`);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+
     return new XMLSerializer().serializeToString(clone);
   }
 
@@ -881,23 +908,42 @@ Kurallar:
       return pt.matrixTransform(svg.getScreenCTM().inverse());
     }
 
+    // Capture the initial CTM at drag start so that viewBox changes
+    // during the drag don't distort the coordinate mapping.
+    let dragCTMInverse = null;
+    let startScreenX = 0, startScreenY = 0;
+
     function onMouseDown(e) {
       const nodeG = e.target.closest('g.node');
       if (!nodeG || !nodeMap.has(nodeG)) return;
       e.stopPropagation();
       e.preventDefault();
       activeNode = nodeG;
-      const svgPt = screenToSVG(e.clientX, e.clientY);
-      startSVGX = svgPt.x;
-      startSVGY = svgPt.y;
+
+      // Lock the CTM at drag start — prevents feedback loop
+      dragCTMInverse = svg.getScreenCTM().inverse();
+      startScreenX = e.clientX;
+      startScreenY = e.clientY;
+
+      const svgPt = svg.createSVGPoint();
+      svgPt.x = e.clientX;
+      svgPt.y = e.clientY;
+      const p = svgPt.matrixTransform(dragCTMInverse);
+      startSVGX = p.x;
+      startSVGY = p.y;
     }
 
     function onMouseMove(e) {
-      if (!activeNode) return;
+      if (!activeNode || !dragCTMInverse) return;
       e.preventDefault();
-      const svgPt = screenToSVG(e.clientX, e.clientY);
-      const dx = svgPt.x - startSVGX;
-      const dy = svgPt.y - startSVGY;
+
+      // Use the LOCKED CTM from drag start for consistent mapping
+      const svgPt = svg.createSVGPoint();
+      svgPt.x = e.clientX;
+      svgPt.y = e.clientY;
+      const p = svgPt.matrixTransform(dragCTMInverse);
+      const dx = p.x - startSVGX;
+      const dy = p.y - startSVGY;
 
       lastDx = dx;
       lastDy = dy;
@@ -922,8 +968,7 @@ Kurallar:
         }
       });
 
-      // Expand viewBox to fit all moved nodes
-      expandViewBox();
+      // Don't expand viewBox during drag — only on commit
     }
 
     function expandViewBox() {
@@ -980,7 +1025,11 @@ Kurallar:
         }
       });
 
+      // Don't expand viewBox for preview — overflow:visible handles it
+      // ViewBox expansion is done only at export time in getModifiedSVGString()
+
       activeNode = null;
+      dragCTMInverse = null;
       lastDx = 0;
       lastDy = 0;
     }
