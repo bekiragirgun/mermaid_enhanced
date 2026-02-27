@@ -4,7 +4,7 @@ const { writeFile, readFile, unlink, mkdir, readdir, stat } = require('fs/promis
 const path = require('path');
 const crypto = require('crypto');
 const { Readable } = require('stream');
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const mammoth = require('mammoth');
 
 const app = express();
@@ -175,8 +175,10 @@ app.post('/api/parse-document', express.raw({ type: '*/*', limit: '10mb' }), asy
     let text = '';
 
     if (fileName.endsWith('.pdf') || contentType.includes('pdf')) {
-      // PDF
-      const data = await pdfParse(req.body);
+      // PDF (pdf-parse v2 API)
+      const parser = new PDFParse({ data: req.body });
+      const data = await parser.getText();
+      await parser.destroy();
       text = data.text;
     } else if (fileName.endsWith('.docx') || contentType.includes('officedocument.wordprocessingml')) {
       // DOCX (Microsoft Word)
