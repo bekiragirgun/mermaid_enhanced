@@ -1183,6 +1183,37 @@ Kurallar:
       .replace(/\n/g, '<br>');
   }
 
+  // ── Panel resizer ────────────────────────────────────
+  const panelResizer = $('#panelResizer');
+  const mainLayout = $('.main-layout');
+
+  let isResizing = false;
+
+  panelResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isResizing = true;
+    panelResizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const rect = mainLayout.getBoundingClientRect();
+    const offset = e.clientX - rect.left;
+    const total = rect.width;
+    const pct = Math.max(20, Math.min(80, (offset / total) * 100));
+    mainLayout.style.gridTemplateColumns = `${pct}% 4px 1fr`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isResizing) return;
+    isResizing = false;
+    panelResizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+
   // ── Theme toggle handler ─────────────────────────────
   $('#btnTheme').addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
